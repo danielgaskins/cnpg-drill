@@ -1,0 +1,24 @@
+{
+  "backupAgeSeconds": 110,
+  "backupID": "20260929T205947",
+  "backupName": "postgres-drill-test",
+  "checks": [
+    {
+      "database": "api",
+      "name": "downloaded-media-schema",
+      "observedSha256": "e3b98a4da31a127d4bde6e43033f66ba274cab0eb7eb1c70ec41402bf6273dd8",
+      "passed": true
+    }
+  ],
+  "cleanup": "cluster-and-pvcs-deleted",
+  "drillCluster": "drill-postgres-09292101-c9511e",
+  "durationSeconds": 66.86,
+  "finishedAt": "2026-09-29T21:02:54.248842+00:00",
+  "recoverySeconds": 57.16,
+  "schemaVersion": 1,
+  "source": "ytdl-drill-test/postgres",
+  "sourceClusterUID": "80d6a46b-654f-4c6e-8085-aa21d1b41eeb",
+  "startedAt": "2026-09-29T21:01:47.389930+00:00",
+  "status": "passed",
+  "targetTime": null
+}
