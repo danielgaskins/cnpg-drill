@@ -28,6 +28,7 @@ The yield hypothesis is concentrated account value, not mass-market volume: a fi
 | BackupDrill | Open-source CLI plus hosted scheduled restore testing for Supabase, with paid plans at $19/$49/$99 per month [6]. | Validates an open-source-to-hosted model, but its buyer, backup format, and price are different. It does not establish willingness to pay $199 for CNPG. |
 | Klio | Experimental CloudNativePG backup/recovery system; docs recommend periodic test restores [7]. | Adjacent upstream project could add this feature. Monitor its roadmap closely. |
 | Internal scripts and CronJobs | A Barman plugin issue documents nightly restores already being run by one team [3]. | DIY is real. The hosted value must save measurable maintenance and audit time. |
+| Tuist's recovery workflow | Tuist runs a scheduled GitHub Actions drill that creates a temporary CNPG Cluster, compares recovered schema and row counts with live data, and deletes the Cluster [14]. It handles both plugin and legacy Barman configurations. | A capable team can build this itself. `cnpg-drill` needs to offer enough safety, repeatability, and reduced upkeep to beat a workflow already in the repo; replacing a richer local check with a weaker generic one would be a regression. |
 
 I found **limited visible CNPG-specific competition**, not “no competition.” Search cannot prove that private products or unindexed repositories do not exist. `checkmydump-operator` overlaps directly, while `restore-drill` and Klio further narrow the wedge.
 
@@ -78,5 +79,6 @@ Krew has discoverability, but **distribution volume is unproven**. GitHub stars 
 11. [n8n community testing feature request](https://community.n8n.io/t/workflow-unit-testing-with-test-cases/254023/).
 12. [OpenTelemetry multi-tenant issue #48895](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/48895).
 13. [`checkmydump-operator` repository](https://github.com/anddimario/checkmydump-operator), inspected on 2026-09-29.
+14. [Tuist's CNPG restore drill workflow](https://github.com/tuist/tuist/blob/main/.github/workflows/cnpg-restore-drill.yml), inspected on 2026-09-29.
 
 Research methods: web search and direct official/project sources; FlowDriver read-only inspection of live GitHub issue search and the Krew index contribution page; local Git shallow clones and `rg` inspection of CloudNativePG docs, Krew index, `restore-drill`, and `checkmydump-operator` source. Subsequent distribution work produced [Krew index PR #6373](https://github.com/kubernetes-sigs/krew-index/pull/6373), [custom Krew index PR #44](https://github.com/ishantanu/awesome-kubectl-plugins/pull/44), and [kubetools PR #431](https://github.com/collabnix/kubetools/pull/431). No paid customer interviews were performed.
