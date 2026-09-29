@@ -1,0 +1,10 @@
+{
+  "namespace": "cnpg-drill-test",
+  "cluster": "app-db",
+  "timeoutSeconds": 600,
+  "maxBackupAgeSeconds": 7200,
+  "checks": [
+    {"name": "saved-fixture", "query": "SELECT marker FROM public.drill_fixture WHERE id=1", "expected": "backup-before"},
+    {"name": "row-count", "query": "SELECT count(*) FROM public.drill_fixture", "expected": "1"}
+  ]
+}

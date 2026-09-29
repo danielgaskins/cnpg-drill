@@ -6,7 +6,7 @@ The core is free and works without an account or external service. It does not m
 
 ## Status
 
-**Early prototype (v0.1.0).** Unit tests cover manifest safety and execution state, but no live CloudNativePG restore has been run in this workspace. Do not rely on a pass as disaster recovery assurance until it has been validated against your operator, PostgreSQL image, storage, and Barman plugin versions. No GitHub release or Krew submission exists yet.
+**Early alpha (v0.1.0).** Unit tests cover manifest safety and execution state. A disposable [local integration run](integration/local/README.md) proved full restore, PITR, failed-check reporting, and Cluster/PVC cleanup on one version matrix. Do not rely on a pass as disaster recovery assurance until it has been validated against your operator, PostgreSQL image, storage, object store, and Barman plugin versions. No GitHub release or Krew submission exists yet.
 
 ## What it supports
 

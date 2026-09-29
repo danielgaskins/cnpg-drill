@@ -20,10 +20,11 @@ SOURCE = {
 
 
 class FakeClient:
-    def __init__(self, *, ready=True, check_result="1", cleanup_error=False, remaining_pvcs=None):
+    def __init__(self, *, ready=True, check_result="1", cleanup_error=False, create_error=False, remaining_pvcs=None):
         self.ready = ready
         self.check_result = check_result
         self.cleanup_error = cleanup_error
+        self.create_error = create_error
         self.created = None
         self.deleted = None
         self.queries = []
@@ -38,6 +39,8 @@ class FakeClient:
 
     def create(self, manifest, namespace):
         self.created = manifest
+        if self.create_error:
+            raise DrillError("create response lost")
 
     def delete(self, resource, name, namespace):
         if self.cleanup_error:
@@ -149,6 +152,20 @@ class RunTest(unittest.TestCase):
         report = run_drill(client, self.config)
         self.assertEqual(report["status"], "failed")
         self.assertEqual(report["cleanup"], "failed")
+
+    def test_attempts_cleanup_after_ambiguous_create_failure(self):
+        client = FakeClient(create_error=True)
+        report = run_drill(client, self.config)
+        self.assertEqual(report["status"], "failed")
+        self.assertEqual(client.deleted, client.created["metadata"]["name"])
+        self.assertNotEqual(report.get("phase"), "preflight")
+
+    def test_stale_backup_is_preflight_failure(self):
+        client = FakeClient()
+        config = Config.from_dict({"namespace": "production", "cluster": "app-db", "maxBackupAgeSeconds": 1})
+        report = run_drill(client, config)
+        self.assertEqual(report["phase"], "preflight")
+        self.assertIsNone(client.created)
 
     def test_retention_only_on_failure(self):
         client = FakeClient(check_result="0")

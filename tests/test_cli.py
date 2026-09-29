@@ -37,6 +37,16 @@ class CliTest(unittest.TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["checks"][0]["passed"], False)
 
+    def test_run_returns_code_two_for_preflight_failure(self):
+        fake = FakeClient()
+        with tempfile.TemporaryDirectory() as folder:
+            config = Path(folder) / "config.json"
+            config.write_text(json.dumps({"namespace": "production", "cluster": "app-db", "maxBackupAgeSeconds": 1}))
+            with patch.object(cli, "Kubectl", return_value=fake), contextlib.redirect_stdout(io.StringIO()):
+                code = cli.main(["run", "--config", str(config)])
+        self.assertEqual(code, 2)
+        self.assertIsNone(fake.created)
+
 
 if __name__ == "__main__":
     unittest.main()

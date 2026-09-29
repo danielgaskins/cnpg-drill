@@ -33,7 +33,7 @@ def main(argv: list[str] | None = None) -> int:
         print(encoded)
         if args.report:
             args.report.write_text(encoded + "\n", encoding="utf-8")
-        return 0 if report["status"] == "passed" else 1
+        return 0 if report["status"] == "passed" else (2 if report.get("phase") == "preflight" else 1)
     except (DrillError, OSError, json.JSONDecodeError) as exc:
         print(f"cnpg-drill: {exc}", file=sys.stderr)
         return 2

@@ -246,8 +246,10 @@ def run_drill(client: Kubectl, config: Config, *, sleep: Callable[[float], None]
         result["backupName"] = manifest["metadata"]["annotations"]["cnpg-drill.dev/backup-name"]
         result["backupID"] = manifest["spec"]["bootstrap"]["recovery"]["recoveryTarget"]["backupID"]
         result["backupAgeSeconds"] = int(manifest["metadata"]["annotations"]["cnpg-drill.dev/backup-age-seconds"])
-        client.create(manifest, config.namespace)
         created = True
+        # A create request can reach the API even if the client loses its response.
+        # In that case, still try to remove the uniquely named drill Cluster.
+        client.create(manifest, config.namespace)
         recovery_started = monotonic()
         deadline = started + config.timeout_seconds
         primary = None
@@ -286,6 +288,8 @@ def run_drill(client: Kubectl, config: Config, *, sleep: Callable[[float], None]
     except (DrillError, ValueError, KeyError) as exc:
         result["error"] = str(exc)
         result["status"] = "failed"
+        if not created:
+            result["phase"] = "preflight"
     finally:
         if created and name and not (result["status"] == "failed" and config.retain_on_failure):
             try:
