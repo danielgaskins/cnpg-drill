@@ -31,7 +31,7 @@ ObjectStores. The default image is pinned to a published digest.
 
 ```bash
 helm install recovery-check oci://ghcr.io/danielgaskins/charts/cnpg-drill \
-  --version 0.1.1 --namespace production --values drill-values.yaml
+  --version 0.1.2 --namespace production --values drill-values.yaml
 kubectl -n production create job recovery-check-manual \
   --from=cronjob/recovery-check-cnpg-drill
 kubectl -n production wait --for=condition=complete job/recovery-check-manual --timeout=35m
