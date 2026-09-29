@@ -1,0 +1,24 @@
+{
+  "backupAgeSeconds": 31,
+  "backupID": "20260929T232356",
+  "backupName": "teuto-db-manual",
+  "checks": [
+    {
+      "database": "postgres",
+      "name": "saved-row",
+      "observedSha256": "ea0035fa033b9384547ecf7e416ed571b2ddb47fc304d4ff44ab985e44582f9b",
+      "passed": true
+    }
+  ],
+  "cleanup": "cluster-and-pvcs-deleted",
+  "drillCluster": "drill-teuto-db-09292324-6acd2d",
+  "durationSeconds": 66.54,
+  "finishedAt": "2026-09-29T23:25:39.686472+00:00",
+  "recoverySeconds": 56.08,
+  "schemaVersion": 1,
+  "source": "teuto-drill/teuto-db",
+  "sourceClusterUID": "a6350dae-482c-4350-804a-852c7dc266b8",
+  "startedAt": "2026-09-29T23:24:33.148559+00:00",
+  "status": "passed",
+  "targetTime": null
+}
