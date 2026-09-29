@@ -1,0 +1,28 @@
+{
+  "backupAgeSeconds": 4920,
+  "backupID": "20260929T173338",
+  "backupName": "app-db-backup-1",
+  "checks": [
+    {
+      "name": "latest-fixture",
+      "observedSha256": "9b05095dc045c4967b71cb499d616d98b9bbd9e830ba07b6e4fc9c43100d4280",
+      "passed": true
+    },
+    {
+      "name": "row-count",
+      "observedSha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "passed": true
+    }
+  ],
+  "cleanup": "cluster-and-pvcs-deleted",
+  "drillCluster": "drill-app-db-09291855-9f8d8e",
+  "durationSeconds": 78.65,
+  "finishedAt": "2026-09-29T18:57:02.684845+00:00",
+  "recoverySeconds": 62.89,
+  "schemaVersion": 1,
+  "source": "cnpg-drill-test/app-db",
+  "sourceClusterUID": "72cacda6-e486-4424-b9ef-640cd61d7add",
+  "startedAt": "2026-09-29T18:55:44.036344+00:00",
+  "status": "passed",
+  "targetTime": null
+}
