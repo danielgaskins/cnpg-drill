@@ -1,0 +1,30 @@
+{
+  "backupAgeSeconds": 22,
+  "backupID": "20260929T203719",
+  "backupName": "pgedge-n1-backup-test",
+  "checks": [
+    {
+      "database": "app",
+      "name": "spock-extension-restored",
+      "observedSha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "passed": true
+    },
+    {
+      "database": "app",
+      "name": "application-row-restored",
+      "observedSha256": "4953f9082b3264a95da7188de106ed51101ac1518a6b2c9685a4b8b3643dd158",
+      "passed": true
+    }
+  ],
+  "cleanup": "cluster-and-pvcs-deleted",
+  "drillCluster": "drill-pgedge-n1-09292037-2292e9",
+  "durationSeconds": 64.7,
+  "finishedAt": "2026-09-29T20:38:58.135956+00:00",
+  "recoverySeconds": 56.2,
+  "schemaVersion": 1,
+  "source": "pgedge-drill-test/pgedge-n1",
+  "sourceClusterUID": "fe2972aa-b2de-470c-a860-17dd791e24ab",
+  "startedAt": "2026-09-29T20:37:53.439381+00:00",
+  "status": "passed",
+  "targetTime": null
+}
