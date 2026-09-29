@@ -8,6 +8,8 @@ The core is free and works without an account or external service. It does not m
 
 **Early alpha (v0.1.0).** Unit tests cover manifest safety and execution state. A disposable [local integration run](integration/local/README.md) proved full restore, PITR, read-only archive access, denied-WAL reporting, failed-check reporting, and Cluster/PVC cleanup on one version matrix. The release archive also passed a local Krew install and live run. Validate against your operator, PostgreSQL image, storage, object store, and Barman plugin versions before treating a pass as disaster recovery assurance.
 
+The [v0.1.0 release](https://github.com/danielgaskins/cnpg-drill/releases/tag/v0.1.0) includes the MIT-licensed kubectl plugin archive and checksum. Its [Krew index submission](https://github.com/kubernetes-sigs/krew-index/pull/6373) is under review.
+
 ## What it supports
 
 - One source CloudNativePG cluster with one enabled Barman Cloud plugin and a named `ObjectStore` in the same namespace.

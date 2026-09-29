@@ -1,4 +1,5 @@
 cluster: app-db
+recoveryObjectStore: drill-recovery-readonly
 suspended: true
 timeoutSeconds: 600
 maxBackupAgeSeconds: 7200
@@ -11,4 +12,4 @@ checks:
     expected: "1"
 image:
   repository: ghcr.io/danielgaskins/cnpg-drill
-  digest: sha256:752822a19b31ff1235933ceed9bd40e44b55bb27c3a34a3df8b903ac5a80225d
+  digest: sha256:fbc62cb0bf2223d3590fbbb0887b5cae8399d9a8e83df5ebd0654c270c34c1bc

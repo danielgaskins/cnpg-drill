@@ -119,6 +119,8 @@ On 2026-09-29, full restore passed with two assertions and cleanup in 51.74 seco
 
 The Helm Job passed two assertions and cleanup in 74.06 seconds using the namespace-scoped ServiceAccount and the published image pinned by SHA-256 digest. Kubernetes reported that same digest as the running container image ID. The CronJob remains suspended. Redacted JSON evidence is in [results](results/).
 
+After adding the separate recovery store setting, the chart was upgraded with the new image pinned to `sha256:fbc62cb0bf2223d3590fbbb0887b5cae8399d9a8e83df5ebd0654c270c34c1bc`. A manually created Job used `drill-recovery-readonly`, passed two assertions and cleanup in 82.85 seconds, and reported that exact digest as its image ID. Only the source and RustFS volumes remained; see [helm-readonly.json](results/helm-readonly.json).
+
 A separate PITR request for a target beyond the available recovery history returned a failed report after its 90-second deadline and deleted the drill Cluster and PVC. This checks bounded failure and cleanup; it does not simulate a corrupted object or a permanently broken archive.
 
 The separately credentialed read-only full restore passed in 76.57 seconds, and PITR passed in 66.1 seconds. A `PutObject` probe with the recovery identity returned S3 `AccessDenied`. A base-only identity could read `backup.info` but received `AccessDenied` for a WAL object; its drill returned exit 1 with `failureReason: archive_access_denied`, a sanitized permission hint, and Cluster/PVC cleanup in 52.31 seconds. The source Cluster spec stayed unchanged. The root listing contained the same 12 object keys before and after these runs, and only the source and RustFS PVCs/PVs remained. Reports are in [results](results/).

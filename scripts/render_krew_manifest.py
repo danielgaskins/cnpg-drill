@@ -41,4 +41,4 @@ spec:
     - from: LICENSE
       to: .
     bin: kubectl-cnpg_drill
-""")
+""", end="")

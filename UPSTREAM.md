@@ -34,3 +34,5 @@ Publish the chart from this GitHub repository after its render/install/upgrade t
 The free package should answer a real operational question in one command, have no mandatory account, produce verifiable reports tied to a backup ID, fail on unsupported configurations, remove its temporary resources, and have a reproducible live test transcript. Reviewers should be able to inspect the entire behavior and run it without contacting our service.
 
 The pinned local recovery gate and isolated Krew install/run were completed on 2026-09-29. Upstream review remains independent.
+
+The [v0.1.0 release](https://github.com/danielgaskins/cnpg-drill/releases/tag/v0.1.0) and [Krew index PR #6373](https://github.com/kubernetes-sigs/krew-index/pull/6373) are public. The PR is awaiting upstream review.
