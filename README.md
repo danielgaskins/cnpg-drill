@@ -6,7 +6,7 @@ The core is free and works without an account or external service. It does not m
 
 ## Status
 
-**Early alpha (v0.1.0).** Unit tests cover manifest safety and execution state. A disposable [local integration run](integration/local/README.md) proved full restore, PITR, failed-check reporting, and Cluster/PVC cleanup on one version matrix. Do not rely on a pass as disaster recovery assurance until it has been validated against your operator, PostgreSQL image, storage, object store, and Barman plugin versions. No GitHub release or Krew submission exists yet.
+**Early alpha (v0.1.0).** Unit tests cover manifest safety and execution state. A disposable [local integration run](integration/local/README.md) proved full restore, PITR, read-only archive access, denied-WAL reporting, failed-check reporting, and Cluster/PVC cleanup on one version matrix. The release archive also passed a local Krew install and live run. Validate against your operator, PostgreSQL image, storage, object store, and Barman plugin versions before treating a pass as disaster recovery assurance.
 
 ## What it supports
 

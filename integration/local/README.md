@@ -123,6 +123,8 @@ A separate PITR request for a target beyond the available recovery history retur
 
 The separately credentialed read-only full restore passed in 76.57 seconds, and PITR passed in 66.1 seconds. A `PutObject` probe with the recovery identity returned S3 `AccessDenied`. A base-only identity could read `backup.info` but received `AccessDenied` for a WAL object; its drill returned exit 1 with `failureReason: archive_access_denied`, a sanitized permission hint, and Cluster/PVC cleanup in 52.31 seconds. The source Cluster spec stayed unchanged. The root listing contained the same 12 object keys before and after these runs, and only the source and RustFS PVCs/PVs remained. Reports are in [results](results/).
 
+The `v0.1.0` archive built from this code passed a local Krew `install --manifest=... --archive=...` using isolated `KREW_ROOT` and Krew `v0.5.0`. `kubectl cnpg-drill --version` returned `0.1.0`; `plan` selected `drill-recovery-readonly`; and `run` passed two assertions and cleanup in 72.22 seconds. The [Krew-run report](results/krew-run.json) contains no query output.
+
 An initial PITR fixture failed because its target timestamp was captured before the write committed. A later attempt hit a missing WAL segment because `pg_switch_wal()` ran in the same SQL command as a write. The fixture helper now separates those transactions and waits for the required archive segment. The test has not yet proven behavior for corrupted objects, other object stores, or other PostgreSQL and operator versions.
 
 To remove this fixture, delete only the test namespace: `kubectl delete namespace cnpg-drill-test`. The K3s uninstall script removes the local runtime and its data; run it only when that is intended.

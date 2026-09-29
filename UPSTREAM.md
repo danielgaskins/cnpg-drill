@@ -33,4 +33,4 @@ Publish the chart from this GitHub repository after its render/install/upgrade t
 
 The free package should answer a real operational question in one command, have no mandatory account, produce verifiable reports tied to a backup ID, fail on unsupported configurations, remove its temporary resources, and have a reproducible live test transcript. Reviewers should be able to inspect the entire behavior and run it without contacting our service.
 
-No PR, package submission, release, or external post has been made as of 2026-09-29.
+The pinned local recovery gate and isolated Krew install/run were completed on 2026-09-29. Upstream review remains independent.
