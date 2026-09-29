@@ -21,6 +21,8 @@ Suggested PR body: “Adds `cnpg-drill`, a free kubectl plugin that restores a C
 
 **Repository:** [`cloudnative-pg/cloudnative-pg`](https://github.com/cloudnative-pg/cloudnative-pg). The [backup docs](https://cloudnative-pg.io/docs/devel/backup/) already tell users to test recovery and measure time. After a real drill, propose a small documentation example showing a disposable restore, the meaning of `backupID`, how to check application data, and safe cleanup. It must work without `cnpg-drill`; the upstream guide should stand alone. Include a tool link only if maintainers request an ecosystem list entry.
 
+[Issue #11587](https://github.com/cloudnative-pg/cloudnative-pg/issues/11587) proposes this addition without a product link. CloudNativePG's [contribution guide](https://github.com/cloudnative-pg/governance/blob/main/CONTRIBUTING.md) asks for maintainer alignment before a PR, and its [AI policy](https://github.com/cloudnative-pg/governance/blob/main/AI_POLICY.md) requires disclosure and human accountability. A draft exists in a fork; no PR has been submitted while the issue awaits feedback and human review.
+
 ## 3. Barman Cloud plugin: regression evidence
 
 **Repository:** [`cloudnative-pg/plugin-barman-cloud`](https://github.com/cloudnative-pg/plugin-barman-cloud). Issue [#516](https://github.com/cloudnative-pg/plugin-barman-cloud/issues/516) describes nightly verification finding restore failures. If a live test reproduces a current plugin issue, contribute a minimal failing test or fix with versioned evidence. Do not attach this product to unrelated issues.
