@@ -1,0 +1,31 @@
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: drill-recovery-readonly
+spec:
+  configuration:
+    destinationPath: s3://cnpg-drill/
+    endpointURL: http://rustfs:9000
+    s3Credentials:
+      accessKeyId:
+        name: recovery-s3-creds
+        key: accessKey
+      secretAccessKey:
+        name: recovery-s3-creds
+        key: secretKey
+---
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: drill-recovery-baseonly
+spec:
+  configuration:
+    destinationPath: s3://cnpg-drill/
+    endpointURL: http://rustfs:9000
+    s3Credentials:
+      accessKeyId:
+        name: recovery-baseonly-s3-creds
+        key: accessKey
+      secretAccessKey:
+        name: recovery-baseonly-s3-creds
+        key: secretKey

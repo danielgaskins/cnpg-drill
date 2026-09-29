@@ -35,6 +35,7 @@ class Check:
 class Config:
     namespace: str
     cluster: str
+    recovery_object_store: str | None = None
     timeout_seconds: int = 1800
     poll_seconds: int = 5
     max_backup_age_seconds: int = 691200
@@ -46,7 +47,7 @@ class Config:
     def from_dict(cls, raw: dict[str, Any]) -> Config:
         if not isinstance(raw, dict):
             raise DrillError("Config must be a JSON object")
-        allowed = {"namespace", "cluster", "timeoutSeconds", "pollSeconds", "maxBackupAgeSeconds", "targetTime", "checks", "retainOnFailure"}
+        allowed = {"namespace", "cluster", "recoveryObjectStore", "timeoutSeconds", "pollSeconds", "maxBackupAgeSeconds", "targetTime", "checks", "retainOnFailure"}
         unknown = set(raw) - allowed
         if unknown:
             raise DrillError(f"Unknown config keys: {', '.join(sorted(unknown))}")
@@ -54,6 +55,9 @@ class Config:
         for label, value in (("namespace", namespace), ("cluster", cluster)):
             if not isinstance(value, str) or not DNS_NAME.fullmatch(value) or len(value) > 63:
                 raise DrillError(f"{label} must be a Kubernetes DNS label")
+        recovery_object_store = raw.get("recoveryObjectStore")
+        if recovery_object_store is not None and (not isinstance(recovery_object_store, str) or not DNS_NAME.fullmatch(recovery_object_store) or len(recovery_object_store) > 63):
+            raise DrillError("recoveryObjectStore must be a Kubernetes DNS label")
         timeout = raw.get("timeoutSeconds", 1800)
         poll = raw.get("pollSeconds", 5)
         max_backup_age = raw.get("maxBackupAgeSeconds", 691200)
@@ -98,7 +102,7 @@ class Config:
         retained = raw.get("retainOnFailure", False)
         if type(retained) is not bool:
             raise DrillError("retainOnFailure must be boolean")
-        return cls(namespace, cluster, timeout, poll, max_backup_age, target, tuple(checks), retained)
+        return cls(namespace, cluster, recovery_object_store, timeout, poll, max_backup_age, target, tuple(checks), retained)
 
 
 class Kubectl:
@@ -121,6 +125,21 @@ class Kubectl:
     def list_pvcs(self, cluster: str, namespace: str) -> list[str]:
         data = json.loads(self.call(["-n", namespace, "get", "pvc", "-l", f"cnpg.io/cluster={cluster}", "-o", "json"]))
         return [item["metadata"]["name"] for item in data.get("items", [])]
+
+    def recovery_logs(self, cluster: str, namespace: str) -> list[str]:
+        data = json.loads(self.call(["-n", namespace, "get", "pods", "-l", f"cnpg.io/cluster={cluster}", "-o", "json"]))
+        logs = []
+        pods = sorted(data.get("items", []), key=lambda p: p.get("metadata", {}).get("creationTimestamp", ""), reverse=True)
+        for pod in pods[:5]:
+            name = pod.get("metadata", {}).get("name", "")
+            if "full-recovery" not in name:
+                continue
+            for container in ("plugin-barman-cloud", "full-recovery"):
+                try:
+                    logs.append(self.call(["-n", namespace, "logs", name, "-c", container, "--tail=200"], timeout=20))
+                except DrillError:
+                    continue
+        return logs
 
     def list_backups(self, namespace: str) -> list[dict[str, Any]]:
         data = json.loads(self.call(["-n", namespace, "get", "backups.postgresql.cnpg.io", "-o", "json"]))
@@ -200,7 +219,7 @@ def build_manifest(source: dict[str, Any], config: Config, *, name: str, backup:
             recovery[key] = copy.deepcopy(initdb[key])
     if config.target_time:
         recovery.setdefault("recoveryTarget", {})["targetTime"] = config.target_time
-    external = {"name": "backup-source", "plugin": {"name": PLUGIN, "enabled": True, "parameters": {"barmanObjectName": object_name, "serverName": params.get("serverName") or config.cluster}}}
+    external = {"name": "backup-source", "plugin": {"name": PLUGIN, "enabled": True, "parameters": {"barmanObjectName": config.recovery_object_store or object_name, "serverName": params.get("serverName") or config.cluster}}}
     output: dict[str, Any] = {
         "apiVersion": "postgresql.cnpg.io/v1", "kind": "Cluster",
         "metadata": {"name": name, "namespace": config.namespace, "labels": {"app.kubernetes.io/managed-by": "cnpg-drill", "cnpg-drill.dev/source": config.cluster}, "annotations": {"cnpg-drill.dev/source-uid": source.get("metadata", {}).get("uid", ""), "cnpg-drill.dev/backup-name": backup.get("metadata", {}).get("name", "") if backup else ""}},
@@ -218,6 +237,32 @@ def new_name(source_name: str) -> str:
     return f"drill-{source_name[:48-len(suffix)]}-{suffix}"
 
 
+def recovery_failure_reason(logs: list[str]) -> str | None:
+    """Classify recovery logs without exposing archive paths, credentials, or SQL."""
+    messages = []
+    for log in logs:
+        for line in log.splitlines()[-200:]:
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(entry, dict):
+                continue
+            record = entry.get("record")
+            if isinstance(record, dict):
+                messages.append(str(record.get("message", "")))
+            messages.append(str(entry.get("error", "")))
+            messages.append(str(entry.get("msg", "")))
+    combined = "\n".join(messages).lower()
+    if re.search(r"access.?denied|permission.?denied|forbidden|\b403\b", combined):
+        return "archive_access_denied"
+    if re.search(r"(wal|archive).{0,100}(not found|no such key|missing|unavailable|does not exist)|requested wal segment.{0,100}removed", combined):
+        return "wal_unavailable"
+    if re.search(r"restore error|error while restoring a backup|fatal", combined):
+        return "recovery_process_failed"
+    return None
+
+
 def prepare(client: Kubectl, config: Config, name: str | None = None) -> dict[str, Any]:
     source = client.get(API, config.cluster, config.namespace)
     if source.get("metadata", {}).get("deletionTimestamp"):
@@ -227,8 +272,17 @@ def prepare(client: Kubectl, config: Config, name: str | None = None) -> dict[st
     backup, age = choose_backup(client.list_backups(config.namespace), config, object_name)
     manifest = build_manifest(source, config, name=name or new_name(config.cluster), backup=backup)
     manifest["metadata"]["annotations"]["cnpg-drill.dev/backup-age-seconds"] = str(age)
-    object_name = manifest["spec"]["externalClusters"][0]["plugin"]["parameters"]["barmanObjectName"]
-    client.get("objectstores.barmancloud.cnpg.io", object_name, config.namespace)
+    if not object_name:
+        raise DrillError("Source needs one enabled Barman Cloud plugin")
+    source_store = client.get("objectstores.barmancloud.cnpg.io", object_name, config.namespace)
+    recovery_name = config.recovery_object_store or object_name
+    if recovery_name != object_name:
+        recovery_store = client.get("objectstores.barmancloud.cnpg.io", recovery_name, config.namespace)
+        source_config = source_store.get("spec", {}).get("configuration", {})
+        recovery_config = recovery_store.get("spec", {}).get("configuration", {})
+        for field in ("destinationPath", "endpointURL"):
+            if not source_config.get(field) or source_config.get(field) != recovery_config.get(field):
+                raise DrillError(f"Recovery ObjectStore {field} must match source ObjectStore")
     return manifest
 
 
@@ -261,7 +315,18 @@ def run_drill(client: Kubectl, config: Config, *, sleep: Callable[[float], None]
                 break
             sleep(config.poll_seconds)
         if not primary:
-            raise DrillError(f"Recovery did not become ready within {config.timeout_seconds}s")
+            try:
+                reason = recovery_failure_reason(client.recovery_logs(name, config.namespace))
+            except DrillError:
+                reason = None
+            result["failureReason"] = reason or "recovery_timeout"
+            hints = {
+                "archive_access_denied": "Check recovery ObjectStore permissions to read both base backup and WAL objects.",
+                "wal_unavailable": "Check that the required WAL segment exists and is readable in the recovery archive.",
+                "recovery_process_failed": "Inspect the drill recovery Pod and operator logs for the underlying restore error.",
+                "recovery_timeout": "Inspect the drill recovery Pod and operator logs for the cause.",
+            }
+            raise DrillError(f"Recovery did not become ready within {config.timeout_seconds}s. {hints[result['failureReason']]}")
         result["recoverySeconds"] = round(monotonic() - recovery_started, 2)
         for check in config.checks:
             observed = client.exec_query(primary, config.namespace, check.query)

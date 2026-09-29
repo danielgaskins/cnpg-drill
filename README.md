@@ -11,6 +11,7 @@ The core is free and works without an account or external service. It does not m
 ## What it supports
 
 - One source CloudNativePG cluster with one enabled Barman Cloud plugin and a named `ObjectStore` in the same namespace.
+- An optional separate `recoveryObjectStore` with credentials limited to archive reads. Preflight checks that its destination and endpoint match the source store before creating a Cluster.
 - Full restore from the latest completed Barman plugin `Backup` resource, or PITR to an explicit RFC3339 `targetTime`. The selected backup ID is pinned and included in the report; a stale backup fails preflight.
 - Single-instance drill cluster using the source's PostgreSQL image, storage size/class, optional WAL storage, and resource requests.
 - Read-only SQL checks. Exact expected values make reports easy to audit.
@@ -38,6 +39,7 @@ Example `drill.json`:
 {
   "namespace": "production",
   "cluster": "app-db",
+  "recoveryObjectStore": "app-db-recovery-readonly",
   "timeoutSeconds": 1800,
   "maxBackupAgeSeconds": 691200,
   "checks": [
@@ -66,7 +68,8 @@ A development image is published at `ghcr.io/danielgaskins/cnpg-drill`; the [loc
 
 ## Safety boundary
 
-- The generated recovery Cluster never copies `spec.plugins`, so it is not configured to archive WAL back to the source bucket. It refers to the source's Barman `ObjectStore` only as an external recovery source.
+- The generated recovery Cluster never copies `spec.plugins`, so it is not configured to archive WAL back to the source bucket. Set `recoveryObjectStore` to a separately named `ObjectStore` with read-only archive credentials. The tool compares its destination and endpoint with the source store; it cannot verify credential permissions, so test that writes are denied before relying on this boundary. Omitting this field uses the source `ObjectStore` for compatibility.
+- A recovery timeout includes a machine-readable `failureReason` when the recovery Pod logs identify archive access denial or unavailable WAL. It does not copy raw logs into the report; inspect Pod and operator logs for detail.
 - The drill uses the same namespace because the plugin's `ObjectStore` and its credentials are namespace-scoped. The source Cluster object is never modified.
 - SQL checks run in a `BEGIN READ ONLY` transaction. Queries are limited to one `SELECT` or `WITH` statement without semicolons. Only provide trusted SQL; this is a guard against mistakes, not a security sandbox.
 - By default, the tool deletes the drill Cluster even when recovery or a check fails. `retainOnFailure` leaves it for investigation and can incur storage costs. Cleanup failures turn the result red.

@@ -1,0 +1,19 @@
+{
+  "backupAgeSeconds": 2924,
+  "backupID": "20260929T173338",
+  "backupName": "app-db-backup-1",
+  "checks": [],
+  "cleanup": "cluster-and-pvcs-deleted",
+  "drillCluster": "drill-app-db-09291822-583a63",
+  "durationSeconds": 52.31,
+  "error": "Recovery did not become ready within 45s. Check recovery ObjectStore permissions to read both base backup and WAL objects.",
+  "failureReason": "archive_access_denied",
+  "finishedAt": "2026-09-29T18:23:21.922644+00:00",
+  "schemaVersion": 1,
+  "source": "cnpg-drill-test/app-db",
+  "sourceClusterUID": "72cacda6-e486-4424-b9ef-640cd61d7add",
+  "sourceSpecUnchanged": true,
+  "startedAt": "2026-09-29T18:22:29.609260+00:00",
+  "status": "failed",
+  "targetTime": null
+}

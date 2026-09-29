@@ -13,7 +13,7 @@ Add unit tests for manifest changes and a real restore transcript for behavior c
 
 ## Live integration gate
 
-A release must demonstrate: a successful full restore; a successful PITR; a broken WAL path that fails; a failed SQL check that fails; no changes to the source Cluster or archive; cleanup of the drill Cluster, PVCs, and volumes. Run these on disposable infrastructure using a supported CloudNativePG and Barman plugin release. This gate has **not** been completed yet.
+A release must demonstrate: a successful full restore; a successful PITR; a broken WAL path that fails with a useful reason; a failed SQL check that fails; no changes to the source Cluster or archive; cleanup of the drill Cluster, PVCs, and volumes. Run these on disposable infrastructure using a supported CloudNativePG and Barman plugin release. The first gate was completed on the [pinned local version matrix](integration/local/README.md); repeat it for changes to recovery behavior.
 
 `PYTHONPATH=src python3 scripts/live_smoke.py --config <config.json> --report <report.json>` runs one real drill and checks the source Cluster spec before and after. Run it once for the latest backup and once with a PITR target. Keep credentials and data out of the report and PR transcript.
 

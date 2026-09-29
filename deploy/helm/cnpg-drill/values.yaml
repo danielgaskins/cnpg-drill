@@ -1,4 +1,5 @@
 cluster: ""
+recoveryObjectStore: ""
 schedule: "0 3 * * 0"
 suspended: true
 timeoutSeconds: 1800

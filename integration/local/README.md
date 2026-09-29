@@ -65,6 +65,44 @@ kubectl -n cnpg-drill-test get cluster,pvc,backup
 kubectl get pv -o custom-columns=NAME:.metadata.name,CLAIM:.spec.claimRef.name,STATUS:.status.phase
 ```
 
+## Read-only recovery and denied-WAL test
+
+The source `drill-store` keeps its writer credentials. The separate `ObjectStore` definitions in [recovery-stores.yaml](recovery-stores.yaml) point to the same archive but use restricted credentials. The [read-only policy](recovery-readonly-policy.json) permits bucket listing and object reads; the [base-only policy](recovery-baseonly-policy.json) is solely a negative-test fixture that denies WAL reads. These policies were exercised against RustFS `1.0.0` with RustFS CLI `v0.1.36`. Create both IAM users and matching Kubernetes Secrets before applying the ObjectStores. Do not use the base-only identity for a normal drill.
+
+For this disposable namespace, port-forward RustFS to `127.0.0.1:19000`, configure a local RustFS CLI alias with the existing writer Secret, then create the policies and users. The alias stores credentials in the CLI's local config; remove it after testing if desired. Run the commands in a shell with `rc` in `PATH`:
+
+```bash
+kubectl -n cnpg-drill-test port-forward svc/rustfs 19000:9000
+```
+
+In another shell:
+
+```bash
+CNPG_ROOT_ACCESS=$(kubectl -n cnpg-drill-test get secret s3-creds -o jsonpath='{.data.accessKey}' | base64 -d)
+CNPG_ROOT_SECRET=$(kubectl -n cnpg-drill-test get secret s3-creds -o jsonpath='{.data.secretKey}' | base64 -d)
+rc alias set cnpg-root http://127.0.0.1:19000 "$CNPG_ROOT_ACCESS" "$CNPG_ROOT_SECRET"
+unset CNPG_ROOT_ACCESS CNPG_ROOT_SECRET
+
+rc admin policy create cnpg-root cnpg-recovery-readonly integration/local/recovery-readonly-policy.json
+rc admin policy create cnpg-root cnpg-recovery-baseonly integration/local/recovery-baseonly-policy.json
+CNPG_READ_SECRET=$(openssl rand -hex 24)
+CNPG_BASE_SECRET=$(openssl rand -hex 24)
+rc admin user add cnpg-root drillrecovery "$CNPG_READ_SECRET"
+rc admin user add cnpg-root drillbaseonly "$CNPG_BASE_SECRET"
+rc admin policy attach cnpg-root cnpg-recovery-readonly --user drillrecovery
+rc admin policy attach cnpg-root cnpg-recovery-baseonly --user drillbaseonly
+kubectl -n cnpg-drill-test create secret generic recovery-s3-creds \
+  --from-literal=accessKey=drillrecovery --from-literal=secretKey="$CNPG_READ_SECRET"
+kubectl -n cnpg-drill-test create secret generic recovery-baseonly-s3-creds \
+  --from-literal=accessKey=drillbaseonly --from-literal=secretKey="$CNPG_BASE_SECRET"
+rc alias set cnpg-recovery http://127.0.0.1:19000 drillrecovery "$CNPG_READ_SECRET"
+rc alias set cnpg-baseonly http://127.0.0.1:19000 drillbaseonly "$CNPG_BASE_SECRET"
+unset CNPG_READ_SECRET CNPG_BASE_SECRET
+kubectl -n cnpg-drill-test apply -f integration/local/recovery-stores.yaml
+```
+
+Verify `rc object list -r cnpg-recovery/cnpg-drill` succeeds and `printf probe | rc pipe cnpg-recovery/cnpg-drill/readonly-probe` returns `AccessDenied`. For the negative case, verify `rc object stat cnpg-baseonly/cnpg-drill/app-db/base/<backup-id>/backup.info` succeeds while a known `app-db/wals/...` object returns `AccessDenied`. Compare `rc object list -r --json cnpg-root/cnpg-drill` immediately before and after the read-only drill while the source is idle. Set `recoveryObjectStore` to `drill-recovery-readonly` in the full/PITR config; use `drill-recovery-baseonly` and a 45-second timeout to test the permanent WAL-read failure. The failed report should include `failureReason`, exit nonzero, and confirm cleanup. Keep the source archive intact.
+
 An image from the tested commit was built by the [manual container workflow](../../.github/workflows/container.yml). To validate the Helm chart, install it suspended and create one Job manually after the PITR fixture has left the source row at `after-pitr`:
 
 ```bash
@@ -83,6 +121,8 @@ The Helm Job passed two assertions and cleanup in 74.06 seconds using the namesp
 
 A separate PITR request for a target beyond the available recovery history returned a failed report after its 90-second deadline and deleted the drill Cluster and PVC. This checks bounded failure and cleanup; it does not simulate a corrupted object or a permanently broken archive.
 
-An initial PITR fixture failed because its target timestamp was captured before the write committed. A later attempt hit a missing WAL segment because `pg_switch_wal()` ran in the same SQL command as a write. The fixture helper now separates those transactions and waits for the required archive segment. The test has not yet proven behavior for corrupted or permanently unavailable WAL, other object stores, or other PostgreSQL and operator versions.
+The separately credentialed read-only full restore passed in 76.57 seconds, and PITR passed in 66.1 seconds. A `PutObject` probe with the recovery identity returned S3 `AccessDenied`. A base-only identity could read `backup.info` but received `AccessDenied` for a WAL object; its drill returned exit 1 with `failureReason: archive_access_denied`, a sanitized permission hint, and Cluster/PVC cleanup in 52.31 seconds. The source Cluster spec stayed unchanged. The root listing contained the same 12 object keys before and after these runs, and only the source and RustFS PVCs/PVs remained. Reports are in [results](results/).
+
+An initial PITR fixture failed because its target timestamp was captured before the write committed. A later attempt hit a missing WAL segment because `pg_switch_wal()` ran in the same SQL command as a write. The fixture helper now separates those transactions and waits for the required archive segment. The test has not yet proven behavior for corrupted objects, other object stores, or other PostgreSQL and operator versions.
 
 To remove this fixture, delete only the test namespace: `kubectl delete namespace cnpg-drill-test`. The K3s uninstall script removes the local runtime and its data; run it only when that is intended.

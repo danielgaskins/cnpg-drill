@@ -4,7 +4,7 @@ import hashlib
 import json
 import unittest
 
-from cnpg_drill.core import Config, DrillError, build_manifest, choose_backup, run_drill
+from cnpg_drill.core import Config, DrillError, build_manifest, choose_backup, prepare, recovery_failure_reason, run_drill
 
 
 SOURCE = {
@@ -33,8 +33,9 @@ class FakeClient:
     def get(self, resource, name, namespace):
         if name == "app-db":
             return copy.deepcopy(SOURCE)
-        if name == "app-store":
-            return {"metadata": {"name": name}}
+        if name in ("app-store", "recovery-store", "wrong-store"):
+            destination = "s3://other/" if name == "wrong-store" else "s3://backups/"
+            return {"metadata": {"name": name}, "spec": {"configuration": {"destinationPath": destination, "endpointURL": "https://s3.example.test"}}}
         return {"status": {"readyInstances": 1 if self.ready else 0, "currentPrimary": f"{name}-1" if self.ready else ""}}
 
     def create(self, manifest, namespace):
@@ -54,12 +55,19 @@ class FakeClient:
     def list_pvcs(self, cluster, namespace):
         return self.remaining_pvcs
 
+    def recovery_logs(self, cluster, namespace):
+        return []
+
     def list_backups(self, namespace):
         stopped = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1)).isoformat()
         return [{"metadata": {"name": "app-db-backup"}, "spec": {"cluster": {"name": "app-db"}, "method": "plugin", "pluginConfiguration": {"name": "barman-cloud.cloudnative-pg.io"}}, "status": {"phase": "completed", "backupId": "20260929T120000", "stoppedAt": stopped, "method": "plugin"}}]
 
 
 class ConfigTest(unittest.TestCase):
+    def test_recovery_store_name_is_validated(self):
+        with self.assertRaisesRegex(DrillError, "recoveryObjectStore"):
+            Config.from_dict({"namespace": "production", "cluster": "app-db", "recoveryObjectStore": "Other/namespace"})
+
     def test_rejects_mutating_or_multiple_statements(self):
         for query in ("DELETE FROM users", "SELECT 1; DROP TABLE users", "  INSERT INTO x VALUES (1)"):
             with self.subTest(query=query), self.assertRaises(DrillError):
@@ -83,6 +91,18 @@ class ManifestTest(unittest.TestCase):
         self.assertEqual(spec["externalClusters"][0]["plugin"]["parameters"], {"barmanObjectName": "app-store", "serverName": "app-db"})
         self.assertEqual(spec["storage"]["size"], "10Gi")
         self.assertEqual(spec["walStorage"]["size"], "2Gi")
+
+    def test_separate_recovery_store_preserves_source_backup_selection(self):
+        config = Config.from_dict({"namespace": "production", "cluster": "app-db", "recoveryObjectStore": "recovery-store"})
+        manifest = prepare(FakeClient(), config, name="drill-app-db-test")
+        self.assertEqual(manifest["spec"]["externalClusters"][0]["plugin"]["parameters"]["barmanObjectName"], "recovery-store")
+        self.assertEqual(manifest["metadata"]["annotations"]["cnpg-drill.dev/backup-name"], "app-db-backup")
+        self.assertNotIn("plugins", manifest["spec"])
+
+    def test_rejects_recovery_store_pointing_elsewhere(self):
+        config = Config.from_dict({"namespace": "production", "cluster": "app-db", "recoveryObjectStore": "wrong-store"})
+        with self.assertRaisesRegex(DrillError, "destinationPath must match"):
+            prepare(FakeClient(), config, name="drill-app-db-test")
 
     def test_fails_closed_on_tablespaces(self):
         source = copy.deepcopy(SOURCE)
@@ -183,6 +203,25 @@ class RunTest(unittest.TestCase):
         self.assertEqual(report["status"], "passed")
         self.assertNotIn(observed, str(report))
         self.assertLess(report["checks"][0]["ageSeconds"], 60)
+
+    def test_recovery_diagnostic_classifies_without_leaking_logs(self):
+        logs = ['{"error":"WAL file 000000010000000000000005 not found in archive s3://private/"}']
+        self.assertEqual(recovery_failure_reason(logs), "wal_unavailable")
+        self.assertEqual(recovery_failure_reason(['{"error":"AccessDenied: secret-bucket"}']), "archive_access_denied")
+        self.assertIsNone(recovery_failure_reason(['{"msg":"restored log file from archive"}']))
+
+    def test_timeout_reports_safe_reason_and_cleans_up(self):
+        class FailedRecovery(FakeClient):
+            def recovery_logs(self, cluster, namespace):
+                return ['{"error":"AccessDenied for s3://secret-path/"}']
+
+        client = FailedRecovery(ready=False)
+        times = iter([0, 1, 31, 32, 33])
+        config = Config.from_dict({"namespace": "production", "cluster": "app-db", "timeoutSeconds": 30})
+        report = run_drill(client, config, sleep=lambda _: None, monotonic=lambda: next(times))
+        self.assertEqual(report["failureReason"], "archive_access_denied")
+        self.assertNotIn("secret-path", str(report))
+        self.assertEqual(report["cleanup"], "cluster-and-pvcs-deleted")
 
 
 if __name__ == "__main__":

@@ -8,4 +8,7 @@ data:
     {{- if .Values.targetTime -}}
     {{- $_ := set $config "targetTime" .Values.targetTime -}}
     {{- end -}}
+    {{- if .Values.recoveryObjectStore -}}
+    {{- $_ := set $config "recoveryObjectStore" .Values.recoveryObjectStore -}}
+    {{- end -}}
     {{- $config | toJson | nindent 4 }}
