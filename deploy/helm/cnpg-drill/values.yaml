@@ -12,9 +12,9 @@ checks:
     query: SELECT 1
     expected: "1"
 image:
-  repository: ""
-  tag: "0.1.0"
-  digest: ""
+  repository: ghcr.io/danielgaskins/cnpg-drill
+  tag: "sha-fb814080eec07b1442adb509c637ff8dd53e2cea"
+  digest: sha256:fbc62cb0bf2223d3590fbbb0887b5cae8399d9a8e83df5ebd0654c270c34c1bc
   pullPolicy: IfNotPresent
 resources:
   requests:

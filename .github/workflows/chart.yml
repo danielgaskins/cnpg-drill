@@ -1,0 +1,31 @@
+name: Helm chart release
+
+on:
+  push:
+    tags:
+      - chart-v*
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: Check chart version matches tag
+        run: |
+          chart_version=$(helm show chart deploy/helm/cnpg-drill | sed -n 's/^version: //p')
+          test "${GITHUB_REF_NAME}" = "chart-v${chart_version}"
+      - name: Lint and package
+        run: |
+          helm lint deploy/helm/cnpg-drill --set cluster=example
+          helm package deploy/helm/cnpg-drill --destination dist
+      - name: Log in to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+      - name: Publish OCI chart
+        run: helm push dist/cnpg-drill-*.tgz "oci://ghcr.io/${{ github.repository_owner }}/charts"

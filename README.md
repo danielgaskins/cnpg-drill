@@ -25,6 +25,8 @@ The CLI refuses source clusters with tablespaces or recovery bootstrap because a
 
 ## Install and use
 
+For a first run on your own cluster, follow the [pilot guide](docs/PILOT.md).
+
 Requirements: Python 3.10+, `kubectl` in `PATH`, CloudNativePG and the Barman Cloud plugin installed in the target cluster, and Kubernetes access to read the source Cluster and ObjectStore, create/get/delete a drill Cluster, and exec into its PostgreSQL pod.
 
 ```bash
