@@ -63,12 +63,11 @@ The Helm chart creates a namespace-scoped ServiceAccount, Role, RoleBinding, Con
 The example image build pins kubectl 1.36.4, suitable for Kubernetes 1.35–1.37 under the project's [version skew policy](https://kubernetes.io/releases/). Set `KUBECTL_VERSION` at image build time for another supported cluster version.
 
 ```bash
-helm install cnpg-drill deploy/helm/cnpg-drill -n production \
-  --set cluster=app-db --set image.repository=your-registry/cnpg-drill \
-  --set image.tag=0.1.0 --set suspended=false
+helm install cnpg-drill oci://ghcr.io/danielgaskins/charts/cnpg-drill \
+  --version 0.1.0 -n production -f drill-values.yaml
 ```
 
-A development image is published at `ghcr.io/danielgaskins/cnpg-drill`; the [local integration test](integration/local/README.md) pins its tested digest. Set an image repository and digest for a reproducible deployment. The CronJob uses `concurrencyPolicy: Forbid` and a bounded job deadline. Its logs contain the JSON result; failed runs have nonzero exit status. **The chart does not yet provide durable report storage, missed-run alerts, or fleet policy.**
+See the [pilot guide](docs/PILOT.md) and [chart values](deploy/helm/cnpg-drill/README.md) for a suspended first run with a separate read-only recovery ObjectStore. The chart pins a public multi-architecture image digest. The CronJob uses `concurrencyPolicy: Forbid` and a bounded job deadline. Its logs contain the JSON result; failed runs have nonzero exit status. **The chart does not yet provide durable report storage, missed-run alerts, or fleet policy.**
 
 ## Safety boundary
 
