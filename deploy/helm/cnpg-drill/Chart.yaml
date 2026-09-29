@@ -2,11 +2,14 @@ apiVersion: v2
 name: cnpg-drill
 description: Verify CloudNativePG Barman backups with disposable restores and read-only SQL checks
 type: application
-version: 0.1.0
+version: 0.1.1
 appVersion: "0.1.0"
 home: https://github.com/danielgaskins/cnpg-drill
 sources:
   - https://github.com/danielgaskins/cnpg-drill
+maintainers:
+  - name: Daniel Gaskins
+    url: https://danielgaskins.com/
 keywords:
   - cloudnativepg
   - postgresql
@@ -14,8 +17,11 @@ keywords:
   - recovery
   - disaster-recovery
 annotations:
+  artifacthub.io/category: database
   artifacthub.io/license: MIT
   artifacthub.io/prerelease: "true"
   artifacthub.io/links: |
     - name: support
       url: https://github.com/danielgaskins/cnpg-drill/issues
+    - name: Author
+      url: https://danielgaskins.com/

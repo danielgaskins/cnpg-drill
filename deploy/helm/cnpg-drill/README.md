@@ -30,7 +30,7 @@ ObjectStores. The default image is pinned to a published digest.
 
 ```bash
 helm install recovery-check oci://ghcr.io/danielgaskins/charts/cnpg-drill \
-  --version 0.1.0 --namespace production --values drill-values.yaml
+  --version 0.1.1 --namespace production --values drill-values.yaml
 kubectl -n production create job recovery-check-manual \
   --from=cronjob/recovery-check-cnpg-drill
 kubectl -n production wait --for=condition=complete job/recovery-check-manual --timeout=35m
@@ -61,3 +61,5 @@ The Job writes the JSON result to its logs. This chart does not yet include
 durable report storage or missed-run alerts. Turn on recurring drills only
 after validating the checks, restore cost, cleanup, and log collection for
 your cluster.
+
+Maintained by [Daniel Gaskins](https://danielgaskins.com/).

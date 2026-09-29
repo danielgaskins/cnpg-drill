@@ -64,7 +64,7 @@ The example image build pins kubectl 1.36.4, suitable for Kubernetes 1.35–1.37
 
 ```bash
 helm install cnpg-drill oci://ghcr.io/danielgaskins/charts/cnpg-drill \
-  --version 0.1.0 -n production -f drill-values.yaml
+  --version 0.1.1 -n production -f drill-values.yaml
 ```
 
 See the [pilot guide](docs/PILOT.md) and [chart values](deploy/helm/cnpg-drill/README.md) for a suspended first run with a separate read-only recovery ObjectStore. The chart pins a public multi-architecture image digest. The CronJob uses `concurrencyPolicy: Forbid` and a bounded job deadline. Its logs contain the JSON result; failed runs have nonzero exit status. **The chart does not yet provide durable report storage, missed-run alerts, or fleet policy.**
