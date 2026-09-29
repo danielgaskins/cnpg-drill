@@ -10,6 +10,8 @@ The core is free and works without an account or external service. It does not m
 
 The [v0.1.0 release](https://github.com/danielgaskins/cnpg-drill/releases/tag/v0.1.0) includes the MIT-licensed kubectl plugin archive and checksum. Its [Krew index submission](https://github.com/kubernetes-sigs/krew-index/pull/6373) is under review.
 
+The [Helm chart is listed on Artifact Hub](https://artifacthub.io/packages/helm/cnpg-drill/cnpg-drill) as a Verified Publisher package. Chart version `0.1.1` uses the tested application image and includes the publisher's [website](https://danielgaskins.com/).
+
 ## What it supports
 
 - One source CloudNativePG cluster with one enabled Barman Cloud plugin and a named `ObjectStore` in the same namespace.
