@@ -1,0 +1,26 @@
+{
+  "backupAgeSeconds": 170,
+  "backupID": "20260929T231448",
+  "backupName": "app-db-backup-env",
+  "checks": [
+    {
+      "database": "postgres",
+      "name": "deliberate-mismatch",
+      "observedSha256": "9b05095dc045c4967b71cb499d616d98b9bbd9e830ba07b6e4fc9c43100d4280",
+      "passed": false
+    }
+  ],
+  "cleanup": "cluster-and-pvcs-deleted",
+  "drillCluster": "drill-app-db-09292317-4e8491",
+  "durationSeconds": 71.88,
+  "error": "Check 'deliberate-mismatch' did not meet its assertion",
+  "finishedAt": "2026-09-29T23:18:52.052055+00:00",
+  "recoverySeconds": 61.16,
+  "schemaVersion": 1,
+  "source": "cnpg-drill-test/app-db",
+  "sourceClusterUID": "72cacda6-e486-4424-b9ef-640cd61d7add",
+  "sourceSpecUnchanged": true,
+  "startedAt": "2026-09-29T23:17:40.171506+00:00",
+  "status": "failed",
+  "targetTime": null
+}

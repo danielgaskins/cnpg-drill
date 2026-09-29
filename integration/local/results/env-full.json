@@ -1,0 +1,31 @@
+{
+  "backupAgeSeconds": 23,
+  "backupID": "20260929T231448",
+  "backupName": "app-db-backup-env",
+  "checks": [
+    {
+      "database": "postgres",
+      "name": "saved-fixture",
+      "observedSha256": "9b05095dc045c4967b71cb499d616d98b9bbd9e830ba07b6e4fc9c43100d4280",
+      "passed": true
+    },
+    {
+      "database": "postgres",
+      "name": "row-count",
+      "observedSha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "passed": true
+    }
+  ],
+  "cleanup": "cluster-and-pvcs-deleted",
+  "drillCluster": "drill-app-db-09292315-da0d3a",
+  "durationSeconds": 51.29,
+  "finishedAt": "2026-09-29T23:16:04.797493+00:00",
+  "recoverySeconds": 40.83,
+  "schemaVersion": 1,
+  "source": "cnpg-drill-test/app-db",
+  "sourceClusterUID": "72cacda6-e486-4424-b9ef-640cd61d7add",
+  "sourceSpecUnchanged": true,
+  "startedAt": "2026-09-29T23:15:13.511810+00:00",
+  "status": "passed",
+  "targetTime": null
+}

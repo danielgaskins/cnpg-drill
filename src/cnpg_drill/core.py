@@ -232,6 +232,17 @@ def build_manifest(source: dict[str, Any], config: Config, *, name: str, backup:
     for key in ("imageName", "imageCatalogRef", "walStorage", "resources"):
         if key in spec:
             output["spec"][key] = copy.deepcopy(spec[key])
+    # S3-compatible stores may need these boto3 settings during recovery too.
+    # Never copy arbitrary source env: it can contain writer credentials.
+    recovery_env = [
+        {"name": item["name"], "value": item["value"]} for item in spec.get("env", [])
+        if isinstance(item, dict)
+        and item.get("name") in {"AWS_REQUEST_CHECKSUM_CALCULATION", "AWS_RESPONSE_CHECKSUM_VALIDATION", "AWS_NO_CHUNKED_ENCODING"}
+        and isinstance(item.get("value"), str)
+        and "valueFrom" not in item
+    ]
+    if recovery_env:
+        output["spec"]["env"] = recovery_env
     # Deliberately do not copy spec.plugins: the recovered cluster must not archive to source.
     return output
 

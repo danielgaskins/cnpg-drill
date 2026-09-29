@@ -135,6 +135,20 @@ class ManifestTest(unittest.TestCase):
         self.assertEqual(recovery["owner"], "orders_user")
         self.assertEqual(recovery["secret"], {"name": "orders-owner"})
 
+    def test_copies_s3_compatibility_env_without_writer_credentials(self):
+        source = copy.deepcopy(SOURCE)
+        source["spec"]["env"] = [
+            {"name": "AWS_REQUEST_CHECKSUM_CALCULATION", "value": "when_required"},
+            {"name": "AWS_RESPONSE_CHECKSUM_VALIDATION", "value": "when_required"},
+            {"name": "AWS_ACCESS_KEY_ID", "valueFrom": {"secretKeyRef": {"name": "writer", "key": "access"}}},
+            {"name": "AWS_NO_CHUNKED_ENCODING", "valueFrom": {"secretKeyRef": {"name": "writer", "key": "flag"}}},
+        ]
+        env = build_manifest(source, self.config, name="drill-app-db-test")["spec"]["env"]
+        self.assertEqual(env, [
+            {"name": "AWS_REQUEST_CHECKSUM_CALCULATION", "value": "when_required"},
+            {"name": "AWS_RESPONSE_CHECKSUM_VALIDATION", "value": "when_required"},
+        ])
+
 
 class BackupSelectionTest(unittest.TestCase):
     def setUp(self):
