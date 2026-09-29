@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cnpg-drill.name" . }}
+data:
+  drill.json: |
+    {{- $config := dict "namespace" .Release.Namespace "cluster" .Values.cluster "timeoutSeconds" .Values.timeoutSeconds "pollSeconds" .Values.pollSeconds "maxBackupAgeSeconds" .Values.maxBackupAgeSeconds "checks" .Values.checks "retainOnFailure" .Values.retainOnFailure -}}
+    {{- if .Values.targetTime -}}
+    {{- $_ := set $config "targetTime" .Values.targetTime -}}
+    {{- end -}}
+    {{- $config | toJson | nindent 4 }}

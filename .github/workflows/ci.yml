@@ -1,0 +1,30 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Unit tests
+        run: PYTHONPATH=src python -m unittest discover -s tests -v
+      - name: Build plugin archive
+        run: python scripts/build_zipapp.py
+      - name: Smoke test archive
+        run: python dist/kubectl-cnpg_drill --version
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: Lint chart
+        run: helm lint deploy/helm/cnpg-drill --set cluster=example --set image.repository=example/cnpg-drill
+      - name: Render chart
+        run: helm template test deploy/helm/cnpg-drill --namespace production --set cluster=example --set image.repository=example/cnpg-drill

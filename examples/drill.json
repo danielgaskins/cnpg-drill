@@ -1,0 +1,10 @@
+{
+  "namespace": "production",
+  "cluster": "app-db",
+  "timeoutSeconds": 1800,
+  "pollSeconds": 5,
+  "checks": [
+    {"name": "postgres-ready", "query": "SELECT 1", "expected": "1"},
+    {"name": "application-table", "query": "SELECT count(*) FROM pg_catalog.pg_tables WHERE schemaname = 'public'", "expected": "5"}
+  ]
+}

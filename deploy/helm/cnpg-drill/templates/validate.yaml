@@ -1,0 +1,6 @@
+{{- if not .Values.cluster }}
+{{- fail "cluster must be set to the source CloudNativePG Cluster name" }}
+{{- end }}
+{{- if not .Values.image.repository }}
+{{- fail "image.repository must be set to a published cnpg-drill image" }}
+{{- end }}

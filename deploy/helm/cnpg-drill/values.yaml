@@ -1,0 +1,23 @@
+cluster: ""
+schedule: "0 3 * * 0"
+suspended: true
+timeoutSeconds: 1800
+pollSeconds: 5
+maxBackupAgeSeconds: 691200
+targetTime: ""
+retainOnFailure: false
+checks:
+  - name: connection
+    query: SELECT 1
+    expected: "1"
+image:
+  repository: ""
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi

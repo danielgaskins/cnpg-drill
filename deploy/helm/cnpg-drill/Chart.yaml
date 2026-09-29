@@ -1,0 +1,6 @@
+apiVersion: v2
+name: cnpg-drill
+description: Scheduled CloudNativePG recovery drill
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

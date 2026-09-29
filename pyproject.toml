@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cnpg-drill"
+version = "0.1.0"
+description = "Prove CloudNativePG Barman backups restore into an isolated cluster"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+authors = [{name = "cnpg-drill contributors"}]
+keywords = ["cloudnativepg", "postgresql", "kubernetes", "backup", "restore"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+[project.scripts]
+cnpg-drill = "cnpg_drill.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
