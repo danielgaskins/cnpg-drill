@@ -6,9 +6,9 @@ The core is free and works without an account or external service. It does not m
 
 ## Status
 
-**Early alpha (v0.1.0).** Unit tests cover manifest safety and execution state. A disposable [local integration run](integration/local/README.md) proved full restore, PITR, read-only archive access, denied-WAL reporting, failed-check reporting, and Cluster/PVC cleanup on one version matrix. The release archive also passed a local Krew install and live run. Validate against your operator, PostgreSQL image, storage, object store, and Barman plugin versions before treating a pass as disaster recovery assurance.
+**Early alpha.** Unit tests cover manifest safety and execution state. A disposable [local integration run](integration/local/README.md) on v0.1.0 proved full restore, PITR, read-only archive access, denied-WAL reporting, failed-check reporting, and Cluster/PVC cleanup on one version matrix. The release archive also passed a local Krew install and live run. Validate against your operator, PostgreSQL image, storage, object store, and Barman plugin versions before treating a pass as disaster recovery assurance.
 
-The [v0.1.0 release](https://github.com/danielgaskins/cnpg-drill/releases/tag/v0.1.0) includes the MIT-licensed kubectl plugin archive and checksum. Its [default Krew index submission](https://github.com/kubernetes-sigs/krew-index/pull/6373) and [custom Krew index submission](https://github.com/ishantanu/awesome-kubectl-plugins/pull/44) are under review. [kubetools](https://github.com/collabnix/kubetools/pull/431) is reviewing a Backup Tools listing.
+The [v0.1.0 release](https://github.com/danielgaskins/cnpg-drill/releases/tag/v0.1.0) includes the MIT-licensed kubectl plugin archive and checksum. The next release adds per-check application database selection. Its [default Krew index submission](https://github.com/kubernetes-sigs/krew-index/pull/6373) and [custom Krew index submission](https://github.com/ishantanu/awesome-kubectl-plugins/pull/44) are under review. [kubetools](https://github.com/collabnix/kubetools/pull/431) is reviewing a Backup Tools listing.
 
 The [Helm chart is listed on Artifact Hub](https://artifacthub.io/packages/helm/cnpg-drill/cnpg-drill) as a Verified Publisher package. Chart version `0.1.1` uses the tested application image and includes the publisher's [website](https://danielgaskins.com/).
 
@@ -18,7 +18,7 @@ The [Helm chart is listed on Artifact Hub](https://artifacthub.io/packages/helm/
 - An optional separate `recoveryObjectStore` with credentials limited to archive reads. Preflight checks that its destination and endpoint match the source store before creating a Cluster.
 - Full restore from the latest completed Barman plugin `Backup` resource, or PITR to an explicit RFC3339 `targetTime`. The selected backup ID is pinned and included in the report; a stale backup fails preflight.
 - Single-instance drill cluster using the source's PostgreSQL image, storage size/class, optional WAL storage, and resource requests.
-- Read-only SQL checks. Exact expected values make reports easy to audit.
+- Read-only SQL checks in `postgres` or a named application database. Exact expected values make reports easy to audit.
 - Optional timestamp freshness assertions (`maxAgeSeconds`) for an application-defined recovery point. This measures age of that application's data, not the database WAL RPO.
 - A JSON report on stdout and optionally in a local file. Query outputs are hashed rather than logged. Exit code 0 means all checks, Cluster deletion, and PVC cleanup passed; 1 means the drill failed; 2 means invalid input or a failed preflight.
 - Scheduled execution with the Helm CronJob in `deploy/helm/cnpg-drill`.
@@ -50,8 +50,8 @@ Example `drill.json`:
   "maxBackupAgeSeconds": 691200,
   "checks": [
     {"name": "postgres-ready", "query": "SELECT 1", "expected": "1"},
-    {"name": "orders-exist", "query": "SELECT count(*) > 0 FROM public.orders", "expected": "t"},
-    {"name": "recent-order", "query": "SELECT max(created_at)::timestamptz FROM public.orders", "maxAgeSeconds": 86400}
+    {"name": "orders-exist", "database": "app", "query": "SELECT count(*) > 0 FROM public.orders", "expected": "t"},
+    {"name": "recent-order", "database": "app", "query": "SELECT max(created_at)::timestamptz FROM public.orders", "maxAgeSeconds": 86400}
   ]
 }
 ```

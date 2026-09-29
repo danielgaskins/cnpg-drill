@@ -29,6 +29,7 @@ class Check:
     query: str
     expected: str | None = None
     max_age_seconds: int | None = None
+    database: str = "postgres"
 
 
 @dataclass(frozen=True)
@@ -84,12 +85,13 @@ class Config:
             raise DrillError("checks must be a list of 1..50 checks")
         checks: list[Check] = []
         for item in checks_raw:
-            if not isinstance(item, dict) or not {"name", "query"} <= set(item) or set(item) - {"name", "query", "expected", "maxAgeSeconds"}:
+            if not isinstance(item, dict) or not {"name", "query"} <= set(item) or set(item) - {"name", "query", "expected", "maxAgeSeconds", "database"}:
                 raise DrillError("Each check needs name, query, and one comparison")
             if ("expected" in item) == ("maxAgeSeconds" in item):
                 raise DrillError("Each check needs exactly one of expected or maxAgeSeconds")
             name, query, expected = item["name"], item["query"], item.get("expected")
             max_age = item.get("maxAgeSeconds")
+            database = item.get("database", "postgres")
             if not isinstance(name, str) or not name or len(name) > 80:
                 raise DrillError("Check name must be 1..80 characters")
             if "expected" in item and (not isinstance(expected, str) or len(expected) > 4096):
@@ -98,7 +100,9 @@ class Config:
                 raise DrillError("maxAgeSeconds must be 1..31536000")
             if not isinstance(query, str) or len(query) > 8192 or not re.match(r"^\s*(SELECT|WITH)\b", query, re.I) or ";" in query:
                 raise DrillError(f"Check {name}: query must be one SELECT/WITH statement without semicolons")
-            checks.append(Check(name, query.strip(), expected, max_age))
+            if not isinstance(database, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]{0,62}", database):
+                raise DrillError(f"Check {name}: database must be a simple PostgreSQL database name")
+            checks.append(Check(name, query.strip(), expected, max_age, database))
         retained = raw.get("retainOnFailure", False)
         if type(retained) is not bool:
             raise DrillError("retainOnFailure must be boolean")
@@ -151,10 +155,10 @@ class Kubectl:
     def delete(self, resource: str, name: str, namespace: str, *, timeout: int = 120) -> None:
         self.call(["-n", namespace, "delete", resource, name, "--ignore-not-found=true", "--wait=true", f"--timeout={timeout}s"], timeout=timeout + 15)
 
-    def exec_query(self, pod: str, namespace: str, query: str) -> str:
+    def exec_query(self, pod: str, namespace: str, query: str, database: str = "postgres") -> str:
         # One read-only transaction. The config parser rejects semicolons in query.
         sql = f"BEGIN READ ONLY; {query}; COMMIT;"
-        return self.call(["-n", namespace, "exec", pod, "-c", "postgres", "--", "psql", "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres", "-c", sql], timeout=60).strip()
+        return self.call(["-n", namespace, "exec", pod, "-c", "postgres", "--", "psql", "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", database, "-c", sql], timeout=60).strip()
 
 
 def choose_backup(backups: list[dict[str, Any]], config: Config, object_name: str | None = None) -> tuple[dict[str, Any], int]:
@@ -329,8 +333,8 @@ def run_drill(client: Kubectl, config: Config, *, sleep: Callable[[float], None]
             raise DrillError(f"Recovery did not become ready within {config.timeout_seconds}s. {hints[result['failureReason']]}")
         result["recoverySeconds"] = round(monotonic() - recovery_started, 2)
         for check in config.checks:
-            observed = client.exec_query(primary, config.namespace, check.query)
-            check_result: dict[str, Any] = {"name": check.name, "observedSha256": hashlib.sha256(observed.encode()).hexdigest()}
+            observed = client.exec_query(primary, config.namespace, check.query, check.database)
+            check_result: dict[str, Any] = {"name": check.name, "database": check.database, "observedSha256": hashlib.sha256(observed.encode()).hexdigest()}
             if check.max_age_seconds is not None:
                 try:
                     observed_time = dt.datetime.fromisoformat(observed.replace("Z", "+00:00"))

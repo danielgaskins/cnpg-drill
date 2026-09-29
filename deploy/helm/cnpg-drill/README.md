@@ -21,6 +21,7 @@ cluster: app-db
 recoveryObjectStore: app-db-recovery-readonly
 checks:
   - name: orders-exist
+    database: app
     query: SELECT count(*) > 0 FROM public.orders
     expected: "t"
 ```

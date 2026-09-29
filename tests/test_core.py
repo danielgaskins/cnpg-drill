@@ -4,7 +4,7 @@ import hashlib
 import json
 import unittest
 
-from cnpg_drill.core import Config, DrillError, build_manifest, choose_backup, prepare, recovery_failure_reason, run_drill
+from cnpg_drill.core import Config, DrillError, Kubectl, build_manifest, choose_backup, prepare, recovery_failure_reason, run_drill
 
 
 SOURCE = {
@@ -48,8 +48,8 @@ class FakeClient:
             raise DrillError("delete denied")
         self.deleted = name
 
-    def exec_query(self, pod, namespace, query):
-        self.queries.append((pod, query))
+    def exec_query(self, pod, namespace, query, database="postgres"):
+        self.queries.append((pod, database, query))
         return self.check_result
 
     def list_pvcs(self, cluster, namespace):
@@ -76,6 +76,23 @@ class ConfigTest(unittest.TestCase):
     def test_requires_timezone_for_pitr(self):
         with self.assertRaises(DrillError):
             Config.from_dict({"namespace": "production", "cluster": "app-db", "targetTime": "2026-01-01T00:00:00"})
+
+    def test_database_name_rejects_connection_strings(self):
+        for database in ("host=elsewhere", "postgresql://elsewhere/db", "-h", "app db"):
+            with self.subTest(database=database), self.assertRaisesRegex(DrillError, "database"):
+                Config.from_dict({"namespace": "production", "cluster": "app-db", "checks": [{"name": "app-data", "database": database, "query": "SELECT 1", "expected": "1"}]})
+
+    def test_exec_uses_selected_database_in_read_only_transaction(self):
+        calls = []
+
+        def invoke(argv, **kwargs):
+            calls.append(argv)
+            return type("Result", (), {"returncode": 0, "stdout": "1\n", "stderr": ""})()
+
+        observed = Kubectl(invoke=invoke).exec_query("drill-1", "production", "SELECT 1", "app")
+        self.assertEqual(observed, "1")
+        self.assertEqual(calls[0][calls[0].index("-d") + 1], "app")
+        self.assertIn("BEGIN READ ONLY; SELECT 1; COMMIT;", calls[0])
 
 
 class ManifestTest(unittest.TestCase):
@@ -158,7 +175,15 @@ class RunTest(unittest.TestCase):
         self.assertLess(report["backupAgeSeconds"], 7200)
         self.assertEqual(report["cleanup"], "cluster-and-pvcs-deleted")
         self.assertEqual(client.deleted, report["drillCluster"])
-        self.assertEqual(report["checks"], [{"name": "connection", "passed": True, "observedSha256": hashlib.sha256(b"1").hexdigest()}])
+        self.assertEqual(report["checks"], [{"name": "connection", "database": "postgres", "passed": True, "observedSha256": hashlib.sha256(b"1").hexdigest()}])
+
+    def test_check_can_query_application_database(self):
+        config = Config.from_dict({"namespace": "production", "cluster": "app-db", "checks": [{"name": "app-data", "database": "app", "query": "SELECT 1", "expected": "1"}]})
+        client = FakeClient()
+        report = run_drill(client, config)
+        self.assertEqual(report["status"], "passed")
+        self.assertEqual(client.queries[0][1], "app")
+        self.assertEqual(report["checks"][0]["database"], "app")
 
     def test_failed_check_still_cleans_up(self):
         client = FakeClient(check_result="0")
