@@ -62,7 +62,7 @@ helm install cnpg-drill deploy/helm/cnpg-drill -n production \
   --set image.tag=0.1.0 --set suspended=false
 ```
 
-The sample container image in the chart is a placeholder until a real release is published. Build and supply your own image with `--set image.repository=... --set image.tag=...`. The CronJob uses `concurrencyPolicy: Forbid` and a bounded job deadline. Its logs contain the JSON result; failed runs have nonzero exit status. **The chart does not yet provide durable report storage, missed-run alerts, or fleet policy.**
+A development image is published at `ghcr.io/danielgaskins/cnpg-drill`; the [local integration test](integration/local/README.md) pins its tested digest. Set an image repository and digest for a reproducible deployment. The CronJob uses `concurrencyPolicy: Forbid` and a bounded job deadline. Its logs contain the JSON result; failed runs have nonzero exit status. **The chart does not yet provide durable report storage, missed-run alerts, or fleet policy.**
 
 ## Safety boundary
 

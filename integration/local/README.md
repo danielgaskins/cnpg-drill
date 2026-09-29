@@ -13,7 +13,7 @@ This fixture runs a real Barman plugin backup and restore in a dedicated namespa
 | PostgreSQL image | `ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie` |
 | RustFS object store | `rustfs/rustfs:1.0.0` |
 
-The K3s binary was downloaded from its tagged GitHub release and checked against `sha256sum-amd64.txt`. The official K3s installer was run with `INSTALL_K3S_SKIP_DOWNLOAD=true` and `INSTALL_K3S_EXEC='server --disable traefik --disable servicelb --disable metrics-server --write-kubeconfig-group daniel --write-kubeconfig-mode 0640'`. This installs a systemd service and `/usr/local/bin/k3s-uninstall.sh`; inspect those host changes before using it on another machine. The test machine has an active UFW service and no public service or ingress for this fixture.
+The K3s binary was downloaded from its tagged GitHub release and checked against `sha256sum-amd64.txt`. The official K3s installer was run with `INSTALL_K3S_SKIP_DOWNLOAD=true` and `INSTALL_K3S_EXEC='server --disable traefik --disable servicelb --disable metrics-server --write-kubeconfig-group daniel --write-kubeconfig-mode 0640'`. This installs a systemd service and `/usr/local/bin/k3s-uninstall.sh`; inspect those host changes before using it on another machine. The test machine's UFW policy denies incoming traffic and has no allow rule for the K3s API port 6443. The fixture exposes no public service or ingress.
 
 ## Install the pinned components
 
@@ -65,9 +65,23 @@ kubectl -n cnpg-drill-test get cluster,pvc,backup
 kubectl get pv -o custom-columns=NAME:.metadata.name,CLAIM:.spec.claimRef.name,STATUS:.status.phase
 ```
 
+An image from the tested commit was built by the [manual container workflow](../../.github/workflows/container.yml). To validate the Helm chart, install it suspended and create one Job manually after the PITR fixture has left the source row at `after-pitr`:
+
+```bash
+helm install local deploy/helm/cnpg-drill --namespace cnpg-drill-test \
+  --kubeconfig /etc/rancher/k3s/k3s.yaml --values integration/local/helm-values.yaml
+kubectl -n cnpg-drill-test create job local-once --from=cronjob/local-cnpg-drill
+kubectl -n cnpg-drill-test wait --for=condition=Complete job/local-once --timeout=300s
+kubectl -n cnpg-drill-test logs job/local-once
+```
+
 ## Observed result
 
 On 2026-09-29, full restore passed with two assertions and cleanup in 51.74 seconds. A clean PITR run passed in 65.74 seconds; the generated fixture passed in 68.82 seconds. A deliberately failed SQL assertion returned exit 1 and removed the drill Cluster and PVC. A stale-backup preflight returned exit 2 without creating a Cluster. The source Cluster spec was unchanged in every `live_smoke.py` report. The only PVs remaining after the runs belonged to `app-db-1` and `rustfs-data`.
+
+The Helm Job passed two assertions and cleanup in 74.06 seconds using the namespace-scoped ServiceAccount and the published image pinned by SHA-256 digest. Kubernetes reported that same digest as the running container image ID. The CronJob remains suspended. Redacted JSON evidence is in [results](results/).
+
+A separate PITR request for a target beyond the available recovery history returned a failed report after its 90-second deadline and deleted the drill Cluster and PVC. This checks bounded failure and cleanup; it does not simulate a corrupted object or a permanently broken archive.
 
 An initial PITR fixture failed because its target timestamp was captured before the write committed. A later attempt hit a missing WAL segment because `pg_switch_wal()` ran in the same SQL command as a write. The fixture helper now separates those transactions and waits for the required archive segment. The test has not yet proven behavior for corrupted or permanently unavailable WAL, other object stores, or other PostgreSQL and operator versions.
 

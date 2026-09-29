@@ -1,0 +1,18 @@
+{
+  "backupAgeSeconds": 1148,
+  "backupID": "20260929T173338",
+  "backupName": "app-db-backup-1",
+  "checks": [],
+  "cleanup": "cluster-and-pvcs-deleted",
+  "drillCluster": "drill-app-db-09291752-aa7ab4",
+  "durationSeconds": 95.56,
+  "error": "Recovery did not become ready within 90s",
+  "finishedAt": "2026-09-29T17:54:29.588299+00:00",
+  "schemaVersion": 1,
+  "source": "cnpg-drill-test/app-db",
+  "sourceClusterUID": "72cacda6-e486-4424-b9ef-640cd61d7add",
+  "sourceSpecUnchanged": true,
+  "startedAt": "2026-09-29T17:52:54.031040+00:00",
+  "status": "failed",
+  "targetTime": "2026-09-29T17:52:40.790027Z"
+}

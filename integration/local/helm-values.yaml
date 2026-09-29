@@ -1,0 +1,14 @@
+cluster: app-db
+suspended: true
+timeoutSeconds: 600
+maxBackupAgeSeconds: 7200
+checks:
+  - name: latest-fixture
+    query: SELECT marker FROM public.drill_fixture WHERE id=1
+    expected: after-pitr
+  - name: row-count
+    query: SELECT count(*) FROM public.drill_fixture
+    expected: "1"
+image:
+  repository: ghcr.io/danielgaskins/cnpg-drill
+  digest: sha256:752822a19b31ff1235933ceed9bd40e44b55bb27c3a34a3df8b903ac5a80225d
