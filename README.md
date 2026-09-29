@@ -8,7 +8,7 @@ The core is free and works without an account or external service. It does not m
 
 **Early alpha (v0.1.0).** Unit tests cover manifest safety and execution state. A disposable [local integration run](integration/local/README.md) proved full restore, PITR, read-only archive access, denied-WAL reporting, failed-check reporting, and Cluster/PVC cleanup on one version matrix. The release archive also passed a local Krew install and live run. Validate against your operator, PostgreSQL image, storage, object store, and Barman plugin versions before treating a pass as disaster recovery assurance.
 
-The [v0.1.0 release](https://github.com/danielgaskins/cnpg-drill/releases/tag/v0.1.0) includes the MIT-licensed kubectl plugin archive and checksum. Its [Krew index submission](https://github.com/kubernetes-sigs/krew-index/pull/6373) is under review.
+The [v0.1.0 release](https://github.com/danielgaskins/cnpg-drill/releases/tag/v0.1.0) includes the MIT-licensed kubectl plugin archive and checksum. Its [Krew index submission](https://github.com/kubernetes-sigs/krew-index/pull/6373) is under review. A [custom Krew index submission](https://github.com/ishantanu/awesome-kubectl-plugins/pull/44) adds a second install path; [kubetools](https://github.com/collabnix/kubetools/pull/431) is reviewing a Backup Tools listing.
 
 The [Helm chart is listed on Artifact Hub](https://artifacthub.io/packages/helm/cnpg-drill/cnpg-drill) as a Verified Publisher package. Chart version `0.1.1` uses the tested application image and includes the publisher's [website](https://danielgaskins.com/).
 
@@ -27,7 +27,7 @@ The CLI refuses source clusters with tablespaces or recovery bootstrap because a
 
 ## Install and use
 
-For a first run on your own cluster, follow the [pilot guide](docs/PILOT.md).
+For a first run on your own cluster, follow the [first-run guide](docs/FIRST-RUN.md).
 
 Requirements: Python 3.10+, `kubectl` in `PATH`, CloudNativePG and the Barman Cloud plugin installed in the target cluster, and Kubernetes access to read the source Cluster and ObjectStore, create/get/delete a drill Cluster, and exec into its PostgreSQL pod.
 
@@ -69,7 +69,7 @@ helm install cnpg-drill oci://ghcr.io/danielgaskins/charts/cnpg-drill \
   --version 0.1.1 -n production -f drill-values.yaml
 ```
 
-See the [pilot guide](docs/PILOT.md) and [chart values](deploy/helm/cnpg-drill/README.md) for a suspended first run with a separate read-only recovery ObjectStore. The chart pins a public multi-architecture image digest. The CronJob uses `concurrencyPolicy: Forbid` and a bounded job deadline. Its logs contain the JSON result; failed runs have nonzero exit status. **The chart does not yet provide durable report storage, missed-run alerts, or fleet policy.**
+See the [first-run guide](docs/FIRST-RUN.md) and [chart values](deploy/helm/cnpg-drill/README.md) for a suspended first run with a separate read-only recovery ObjectStore. The chart pins a public multi-architecture image digest. The CronJob uses `concurrencyPolicy: Forbid` and a bounded job deadline. Its logs contain the JSON result; failed runs have nonzero exit status. **The chart does not yet provide durable report storage, missed-run alerts, or fleet policy.**
 
 ## Safety boundary
 

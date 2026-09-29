@@ -1,7 +1,7 @@
 ---
-name: Recovery drill pilot feedback
+name: Recovery drill feedback
 about: Share a sanitized first-run result or adoption blocker
-title: "[Pilot] "
+title: "[Recovery drill] "
 ---
 
 Please omit credentials, kubeconfig, archive URLs, SQL results, and business data.

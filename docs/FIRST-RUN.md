@@ -41,7 +41,7 @@ that fails because WAL is unavailable is useful evidence of a recovery gap.
 
 ## Share what happened
 
-If you can, [open a pilot feedback issue](https://github.com/danielgaskins/cnpg-drill/issues/new?template=pilot-feedback.md).
+If you can, [open a recovery feedback issue](https://github.com/danielgaskins/cnpg-drill/issues/new?template=recovery-feedback.md).
 The most useful observations are whether the backup restored, whether you
 could check real application data, total recovery time, what failed, and the
 operator time needed to keep this running. Redact cluster names, archive URLs,
