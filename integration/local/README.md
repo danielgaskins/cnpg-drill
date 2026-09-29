@@ -129,6 +129,8 @@ The `v0.1.0` archive built from this code passed a local Krew `install --manifes
 
 The public OCI chart `oci://ghcr.io/danielgaskins/charts/cnpg-drill:0.1.0` was fetched without registry credentials and installed as `oci-pilot` with the CronJob suspended. Its one-off Job used the multi-architecture image at `sha256:814dfb077dc1b886a870b97bf1f4b83ce5895628c2aa118c04ac67fb8735391b`, passed both assertions, and removed the drill Cluster and PVCs in 78.65 seconds. The Pod image ID matched that digest. The source and RustFS were the only remaining PVCs and PVs; see [helm-oci.json](results/helm-oci.json).
 
+The chart release workflow repackaged version `0.1.0` at OCI digest `sha256:662fc793ccee720ac9e1ef49a4be46da32822f2e4aabc76370db5e807ad3594f`. After upgrading `oci-pilot` from that final public artifact, a second one-off Job passed the same assertions and cleanup in 75.32 seconds using the same image digest. The source and RustFS were again the only remaining PVCs; see [helm-oci-release.json](results/helm-oci-release.json).
+
 An initial PITR fixture failed because its target timestamp was captured before the write committed. A later attempt hit a missing WAL segment because `pg_switch_wal()` ran in the same SQL command as a write. The fixture helper now separates those transactions and waits for the required archive segment. The test has not yet proven behavior for corrupted objects, other object stores, or other PostgreSQL and operator versions.
 
 To remove this fixture, delete only the test namespace: `kubectl delete namespace cnpg-drill-test`. The K3s uninstall script removes the local runtime and its data; run it only when that is intended.
