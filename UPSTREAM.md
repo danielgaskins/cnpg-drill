@@ -33,7 +33,7 @@ The tested chart is published as `oci://ghcr.io/danielgaskins/charts/cnpg-drill`
 
 ## 5. Python package
 
-The [PyPI package](https://pypi.org/project/cnpg-drill/) provides the CLI without cloning this repository. The v0.1.2 wheel and source distribution came from the matching GitHub release tag through the `pypi` trusted-publisher workflow. A fresh install from PyPI returned `cnpg-drill --version` as `0.1.2`.
+The [PyPI package](https://pypi.org/project/cnpg-drill/) provides the CLI without cloning this repository. The v0.1.3 wheel and source distribution came from the matching GitHub release tag through the `pypi` trusted-publisher workflow. A fresh install from PyPI returned `cnpg-drill --version` as `0.1.3`.
 
 ## What would make inclusion plausible
 

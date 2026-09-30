@@ -10,7 +10,7 @@ The core is free and works without an account or external service. It does not m
 
 The [v0.1.3 release](https://github.com/danielgaskins/cnpg-drill/releases/tag/v0.1.3) accepts CloudNativePG `storage.pvcTemplate` capacity as well as `storage.size` and avoids binding drill PVCs to source volumes or snapshots. It includes the MIT-licensed kubectl plugin archive and checksum. The [default Krew index submission](https://github.com/kubernetes-sigs/krew-index/pull/6373) packages v0.1.2, while the [custom Krew index submission](https://github.com/ishantanu/awesome-kubectl-plugins/pull/44) packages v0.1.0; both remain under review. [kubetools](https://github.com/collabnix/kubetools/pull/431) is reviewing a Backup Tools listing.
 
-The [Helm chart is listed on Artifact Hub](https://artifacthub.io/packages/helm/cnpg-drill/cnpg-drill) as a Verified Publisher package. Chart version `0.1.4` uses the v0.1.2 application image and includes the publisher's [website](https://danielgaskins.com/).
+The [Helm chart is listed on Artifact Hub](https://artifacthub.io/packages/helm/cnpg-drill/cnpg-drill) as a Verified Publisher package. Chart version `0.1.5` uses the v0.1.3 application image and includes the publisher's [website](https://danielgaskins.com/).
 
 The Python CLI is also [published on PyPI](https://pypi.org/project/cnpg-drill/). Its wheel and source distribution are built from the release tag with GitHub trusted publishing.
 
@@ -71,7 +71,7 @@ The example image build pins kubectl 1.36.4, suitable for Kubernetes 1.35–1.37
 
 ```bash
 helm install cnpg-drill oci://ghcr.io/danielgaskins/charts/cnpg-drill \
-  --version 0.1.4 -n production -f drill-values.yaml
+  --version 0.1.5 -n production -f drill-values.yaml
 ```
 
 See the [first-run guide](docs/FIRST-RUN.md) and [chart values](deploy/helm/cnpg-drill/README.md) for a suspended first run with a separate read-only recovery ObjectStore. The chart pins a public multi-architecture image digest. The CronJob uses `concurrencyPolicy: Forbid` and a bounded job deadline. Its logs contain the JSON result; failed runs have nonzero exit status. Optional PVC reports and Prometheus rules preserve results and flag missed or failed runs. Fleet policy remains future work.
