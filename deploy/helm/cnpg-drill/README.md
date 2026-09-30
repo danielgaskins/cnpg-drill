@@ -31,7 +31,7 @@ ObjectStores. The default image is pinned to a published digest.
 
 ```bash
 helm install recovery-check oci://ghcr.io/danielgaskins/charts/cnpg-drill \
-  --version 0.1.3 --namespace production --values drill-values.yaml
+  --version 0.1.4 --namespace production --values drill-values.yaml
 kubectl -n production create job recovery-check-manual \
   --from=cronjob/recovery-check-cnpg-drill
 kubectl -n production wait --for=condition=complete job/recovery-check-manual --timeout=35m
@@ -57,10 +57,38 @@ accepts a connection; replace it before scheduling recurring drills.
 | `targetTime` | empty | Optional RFC3339 PITR target with a timezone. |
 | `retainOnFailure` | `false` | Leaves a failed drill Cluster and its storage for investigation when true. |
 | `image.digest` | pinned | Tested container image; set a new digest when updating. |
+| `reports.enabled` | `false` | Write each Job's JSON report to a PVC as `<pod-name>.json`. |
+| `reports.existingClaim` | empty | Use an existing claim instead of creating one. |
+| `reports.size` | `1Gi` | Size of the chart-created claim. |
+| `reports.storageClassName` | cluster default | Storage class for the chart-created claim. |
+| `alerts.enabled` | `false` | Create a PrometheusRule for failed Jobs, missing success, and missing metrics. |
+| `alerts.maxSecondsSinceSuccess` | `691200` | Alert after eight days without a successful scheduled drill. Set this for your schedule. |
+| `alerts.labels` | `{}` | Metadata labels used by your Prometheus rule selector. |
 
-The Job writes the JSON result to its logs. This chart does not yet include
-durable report storage or missed-run alerts. Turn on recurring drills only
-after validating the checks, restore cost, cleanup, and log collection for
-your cluster.
+The Job always writes the JSON result to its logs. With `reports.enabled: true`,
+it also writes a separate file for each Pod to a PVC. The chart creates a
+`ReadWriteOnce` claim unless `reports.existingClaim` is set. It retains a
+chart-created claim on Helm uninstall so report history is not erased; delete
+the claim yourself when you no longer need it. Protect the claim as operational
+data: reports contain cluster and backup identifiers, check names, durations,
+hashes, and error text.
+
+To retrieve reports, mount the claim in a reader Pod or use your normal PVC
+backup process. A scheduled Job runs with UID and GID 10001 and sets
+`fsGroup: 10001` so it can write the mounted volume. Your storage driver must
+support that ownership behavior. A `ReadWriteOnce` claim can also constrain
+where overlapping manual Jobs run; use an existing `ReadWriteMany` claim if
+you need concurrent readers or cross-node runs.
+
+`alerts.enabled: true` requires the Prometheus Operator's `PrometheusRule`
+CRD, a Prometheus instance that selects this rule through `alerts.labels`, and
+kube-state-metrics Job and CronJob metrics. The rules alert when a scheduled
+Job fails, when an unsuspended CronJob has no success within
+`alerts.maxSecondsSinceSuccess`, or when its CronJob metric is missing. The
+last-success rule also covers a CronJob that has never succeeded. Alert
+routing is owned by your Prometheus setup; this chart does not send messages.
+
+Turn on recurring drills only after validating the checks, restore cost,
+cleanup, storage permissions, and alert routing for your cluster.
 
 Maintained by [Daniel Gaskins](https://danielgaskins.com/).

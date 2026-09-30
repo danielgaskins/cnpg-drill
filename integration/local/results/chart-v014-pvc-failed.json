@@ -1,0 +1,25 @@
+{
+  "backupAgeSeconds": 6373,
+  "backupID": "20260929T231448",
+  "backupName": "app-db-backup-env",
+  "checks": [
+    {
+      "database": "postgres",
+      "name": "wrong-marker",
+      "observedSha256": "9b05095dc045c4967b71cb499d616d98b9bbd9e830ba07b6e4fc9c43100d4280",
+      "passed": false
+    }
+  ],
+  "cleanup": "cluster-and-pvcs-deleted",
+  "drillCluster": "drill-app-db-09300101-9d2339",
+  "durationSeconds": 73.11,
+  "error": "Check 'wrong-marker' did not meet its assertion",
+  "finishedAt": "2026-09-30T01:02:15.485031+00:00",
+  "recoverySeconds": 62.5,
+  "schemaVersion": 1,
+  "source": "cnpg-drill-test/app-db",
+  "sourceClusterUID": "72cacda6-e486-4424-b9ef-640cd61d7add",
+  "startedAt": "2026-09-30T01:01:02.374340+00:00",
+  "status": "failed",
+  "targetTime": null
+}

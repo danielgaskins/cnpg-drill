@@ -7,6 +7,15 @@ pollSeconds: 5
 maxBackupAgeSeconds: 691200
 targetTime: ""
 retainOnFailure: false
+reports:
+  enabled: false
+  existingClaim: ""
+  size: 1Gi
+  storageClassName: ""
+alerts:
+  enabled: false
+  maxSecondsSinceSuccess: 691200
+  labels: {}
 checks:
   - name: connection
     query: SELECT 1
