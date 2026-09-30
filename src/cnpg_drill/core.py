@@ -193,6 +193,24 @@ def choose_backup(backups: list[dict[str, Any]], config: Config, object_name: st
     return chosen, age
 
 
+def fresh_storage(raw: Any, field: str) -> dict[str, Any]:
+    """Keep source capacity and class without binding a drill PVC to source storage."""
+    if not isinstance(raw, dict):
+        raise DrillError(f"Source Cluster needs {field}.size or {field}.pvcTemplate.resources.requests.storage")
+    storage = copy.deepcopy(raw)
+    template = storage.get("pvcTemplate")
+    if isinstance(template, dict):
+        for key in ("dataSource", "dataSourceRef", "selector", "volumeName"):
+            template.pop(key, None)
+    size = storage.get("size")
+    resources = template.get("resources") if isinstance(template, dict) else None
+    requests = resources.get("requests") if isinstance(resources, dict) else None
+    template_size = requests.get("storage") if isinstance(requests, dict) else None
+    if not (isinstance(size, str) and size) and not (isinstance(template_size, str) and template_size):
+        raise DrillError(f"Source Cluster needs {field}.size or {field}.pvcTemplate.resources.requests.storage")
+    return storage
+
+
 def build_manifest(source: dict[str, Any], config: Config, *, name: str, backup: dict[str, Any] | None = None) -> dict[str, Any]:
     spec = source.get("spec", {})
     if spec.get("tablespaces"):
@@ -209,9 +227,7 @@ def build_manifest(source: dict[str, Any], config: Config, *, name: str, backup:
     object_name = params.get("barmanObjectName")
     if not isinstance(object_name, str) or not DNS_NAME.fullmatch(object_name):
         raise DrillError("Barman plugin needs a valid barmanObjectName")
-    storage = spec.get("storage")
-    if not isinstance(storage, dict) or not storage.get("size"):
-        raise DrillError("Source Cluster needs storage.size")
+    storage = fresh_storage(spec.get("storage"), "storage")
     if len(name) > 63 or not DNS_NAME.fullmatch(name) or name == config.cluster:
         raise DrillError("Invalid or unsafe drill cluster name")
     recovery: dict[str, Any] = {"source": "backup-source"}
@@ -227,11 +243,13 @@ def build_manifest(source: dict[str, Any], config: Config, *, name: str, backup:
     output: dict[str, Any] = {
         "apiVersion": "postgresql.cnpg.io/v1", "kind": "Cluster",
         "metadata": {"name": name, "namespace": config.namespace, "labels": {"app.kubernetes.io/managed-by": "cnpg-drill", "cnpg-drill.dev/source": config.cluster}, "annotations": {"cnpg-drill.dev/source-uid": source.get("metadata", {}).get("uid", ""), "cnpg-drill.dev/backup-name": backup.get("metadata", {}).get("name", "") if backup else ""}},
-        "spec": {"instances": 1, "storage": copy.deepcopy(storage), "bootstrap": {"recovery": recovery}, "externalClusters": [external]},
+        "spec": {"instances": 1, "storage": storage, "bootstrap": {"recovery": recovery}, "externalClusters": [external]},
     }
-    for key in ("imageName", "imageCatalogRef", "walStorage", "resources"):
+    for key in ("imageName", "imageCatalogRef", "resources"):
         if key in spec:
             output["spec"][key] = copy.deepcopy(spec[key])
+    if "walStorage" in spec:
+        output["spec"]["walStorage"] = fresh_storage(spec["walStorage"], "walStorage")
     # S3-compatible stores may need these boto3 settings during recovery too.
     # Never copy arbitrary source env: it can contain writer credentials.
     recovery_env = [

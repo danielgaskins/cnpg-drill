@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 import pathlib
+import runpy
 import tarfile
 import zipapp
 
@@ -19,7 +20,8 @@ zipapp.create_archive(
     filter=lambda path: "__pycache__" not in path.parts and path.suffix not in {".pyc", ".pyo"},
 )
 binary.chmod(binary.stat().st_mode | 0o111)
-archive = dist / "cnpg-drill_0.1.2_unix.tar.gz"
+version = runpy.run_path(str(root / "src" / "cnpg_drill" / "__init__.py"))["__version__"]
+archive = dist / f"cnpg-drill_{version}_unix.tar.gz"
 with tarfile.open(archive, "w:gz") as tar:
     tar.add(binary, arcname=binary.name)
     tar.add(root / "LICENSE", arcname="LICENSE")

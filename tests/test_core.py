@@ -109,6 +109,34 @@ class ManifestTest(unittest.TestCase):
         self.assertEqual(spec["storage"]["size"], "10Gi")
         self.assertEqual(spec["walStorage"]["size"], "2Gi")
 
+    def test_pvc_template_uses_fresh_volume_with_source_capacity(self):
+        source = copy.deepcopy(SOURCE)
+        source["spec"]["storage"] = {
+            "resizeInUseVolumes": True,
+            "pvcTemplate": {
+                "accessModes": ["ReadWriteOnce"],
+                "resources": {"requests": {"storage": "50Gi"}},
+                "storageClassName": "encrypted-local-path",
+                "volumeMode": "Filesystem",
+                "volumeName": "source-pv",
+                "selector": {"matchLabels": {"source": "true"}},
+                "dataSource": {"kind": "VolumeSnapshot", "name": "source-snapshot"},
+            },
+        }
+        manifest = build_manifest(source, self.config, name="drill-app-db-test")
+        storage = manifest["spec"]["storage"]
+        self.assertEqual(storage["pvcTemplate"]["resources"]["requests"]["storage"], "50Gi")
+        self.assertEqual(storage["pvcTemplate"]["storageClassName"], "encrypted-local-path")
+        for key in ("volumeName", "selector", "dataSource", "dataSourceRef"):
+            self.assertNotIn(key, storage["pvcTemplate"])
+        self.assertIn("volumeName", source["spec"]["storage"]["pvcTemplate"])
+
+    def test_rejects_storage_without_capacity(self):
+        source = copy.deepcopy(SOURCE)
+        source["spec"]["storage"] = {"pvcTemplate": {"storageClassName": "fast"}}
+        with self.assertRaisesRegex(DrillError, "storage.pvcTemplate.resources.requests.storage"):
+            build_manifest(source, self.config, name="drill-app-db-test")
+
     def test_separate_recovery_store_preserves_source_backup_selection(self):
         config = Config.from_dict({"namespace": "production", "cluster": "app-db", "recoveryObjectStore": "recovery-store"})
         manifest = prepare(FakeClient(), config, name="drill-app-db-test")

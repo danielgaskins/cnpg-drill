@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "source": "cnpg-drill-test/app-db",
+  "startedAt": "2026-09-30T01:17:18.306591+00:00",
+  "targetTime": null,
+  "checks": [
+    {
+      "name": "latest-fixture",
+      "database": "postgres",
+      "observedSha256": "9b05095dc045c4967b71cb499d616d98b9bbd9e830ba07b6e4fc9c43100d4280",
+      "passed": true
+    }
+  ],
+  "status": "passed",
+  "drillCluster": "drill-app-db-09300117-0c980b",
+  "sourceClusterUID": "72cacda6-e486-4424-b9ef-640cd61d7add",
+  "backupName": "app-db-backup-env",
+  "backupID": "20260929T231448",
+  "backupAgeSeconds": 7348,
+  "recoverySeconds": 56.08,
+  "cleanup": "cluster-and-pvcs-deleted",
+  "finishedAt": "2026-09-30T01:18:23.927823+00:00",
+  "durationSeconds": 65.62
+}

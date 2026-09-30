@@ -8,18 +8,18 @@ The core is free and works without an account or external service. It does not m
 
 **Early alpha.** Unit tests cover manifest safety and execution state. A disposable [local integration run](integration/local/README.md) on v0.1.0 proved full restore, PITR, read-only archive access, denied-WAL reporting, failed-check reporting, and Cluster/PVC cleanup on one version matrix. The v0.1.1 release archive and public chart 0.1.2 also restored a fresh backup and checked a row in an application database. A separate single-node pgEdge chart restore passed SQL checks in its `app` database. Validate against your operator, PostgreSQL image, storage, object store, and Barman plugin versions before treating a pass as disaster recovery assurance.
 
-The [v0.1.2 release](https://github.com/danielgaskins/cnpg-drill/releases/tag/v0.1.2) carries literal AWS checksum compatibility settings into recovery clusters without copying source credentials. It includes the MIT-licensed kubectl plugin archive and checksum. The [default Krew index submission](https://github.com/kubernetes-sigs/krew-index/pull/6373) packages v0.1.2, while the [custom Krew index submission](https://github.com/ishantanu/awesome-kubectl-plugins/pull/44) packages v0.1.0; both remain under review. [kubetools](https://github.com/collabnix/kubetools/pull/431) is reviewing a Backup Tools listing.
+The [v0.1.3 release](https://github.com/danielgaskins/cnpg-drill/releases/tag/v0.1.3) accepts CloudNativePG `storage.pvcTemplate` capacity as well as `storage.size` and avoids binding drill PVCs to source volumes or snapshots. It includes the MIT-licensed kubectl plugin archive and checksum. The [default Krew index submission](https://github.com/kubernetes-sigs/krew-index/pull/6373) packages v0.1.2, while the [custom Krew index submission](https://github.com/ishantanu/awesome-kubectl-plugins/pull/44) packages v0.1.0; both remain under review. [kubetools](https://github.com/collabnix/kubetools/pull/431) is reviewing a Backup Tools listing.
 
 The [Helm chart is listed on Artifact Hub](https://artifacthub.io/packages/helm/cnpg-drill/cnpg-drill) as a Verified Publisher package. Chart version `0.1.4` uses the v0.1.2 application image and includes the publisher's [website](https://danielgaskins.com/).
 
-The Python CLI is also [published on PyPI](https://pypi.org/project/cnpg-drill/). Its v0.1.2 wheel and source distribution were built from the release tag with GitHub trusted publishing and verified with a fresh PyPI install.
+The Python CLI is also [published on PyPI](https://pypi.org/project/cnpg-drill/). Its wheel and source distribution are built from the release tag with GitHub trusted publishing.
 
 ## What it supports
 
 - One source CloudNativePG cluster with one enabled Barman Cloud plugin and a named `ObjectStore` in the same namespace.
 - An optional separate `recoveryObjectStore` with credentials limited to archive reads. Preflight checks that its destination and endpoint match the source store before creating a Cluster.
 - Full restore from the latest completed Barman plugin `Backup` resource, or PITR to an explicit RFC3339 `targetTime`. The selected backup ID is pinned and included in the report; a stale backup fails preflight.
-- Single-instance drill cluster using the source's PostgreSQL image, storage size/class, optional WAL storage, and resource requests.
+- Single-instance drill cluster using the source's PostgreSQL image, `storage.size` or `storage.pvcTemplate` capacity and class, optional WAL storage, and resource requests. Existing volume bindings and snapshot data sources are removed from the drill PVC template.
 - Copies literal AWS checksum compatibility settings from the source Cluster for S3-compatible archive restores; it does not copy writer credentials or arbitrary environment variables.
 - Read-only SQL checks in `postgres` or a named application database. Exact expected values make reports easy to audit.
 - Optional timestamp freshness assertions (`maxAgeSeconds`) for an application-defined recovery point. This measures age of that application's data, not the database WAL RPO.
@@ -35,12 +35,12 @@ For a first run on your own cluster, follow the [first-run guide](docs/FIRST-RUN
 Requirements: Python 3.10+, `kubectl` in `PATH`, CloudNativePG and the Barman Cloud plugin installed in the target cluster, and Kubernetes access to read the source Cluster and ObjectStore, create/get/delete a drill Cluster, and exec into its PostgreSQL pod.
 
 ```bash
-uv tool install cnpg-drill==0.1.2
+uv tool install cnpg-drill==0.1.3
 cnpg-drill plan --config examples/drill.json
 cnpg-drill run --config examples/drill.json --report reports/latest.json
 ```
 
-`pipx install cnpg-drill==0.1.2` is another way to install the CLI in its own environment. For source development, clone this repository and run `python3 -m pip install -e .`.
+`pipx install cnpg-drill==0.1.3` is another way to install the CLI in its own environment. For source development, clone this repository and run `python3 -m pip install -e .`.
 
 `plan` reads the source configuration and prints the exact Cluster manifest it would create. Review that manifest before running the first drill. The example's table-count assertion is illustrative; replace it with an invariant from your own application. A minimal check is `SELECT 1`, but it only proves connection to the recovered server, not useful application data.
 
