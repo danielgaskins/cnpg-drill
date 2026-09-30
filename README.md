@@ -12,6 +12,8 @@ The [v0.1.2 release](https://github.com/danielgaskins/cnpg-drill/releases/tag/v0
 
 The [Helm chart is listed on Artifact Hub](https://artifacthub.io/packages/helm/cnpg-drill/cnpg-drill) as a Verified Publisher package. Chart version `0.1.3` uses the v0.1.2 application image and includes the publisher's [website](https://danielgaskins.com/).
 
+The Python CLI is also [published on PyPI](https://pypi.org/project/cnpg-drill/). Its v0.1.2 wheel and source distribution were built from the release tag with GitHub trusted publishing and verified with a fresh PyPI install.
+
 ## What it supports
 
 - One source CloudNativePG cluster with one enabled Barman Cloud plugin and a named `ObjectStore` in the same namespace.
@@ -33,10 +35,12 @@ For a first run on your own cluster, follow the [first-run guide](docs/FIRST-RUN
 Requirements: Python 3.10+, `kubectl` in `PATH`, CloudNativePG and the Barman Cloud plugin installed in the target cluster, and Kubernetes access to read the source Cluster and ObjectStore, create/get/delete a drill Cluster, and exec into its PostgreSQL pod.
 
 ```bash
-python3 -m pip install -e .
+uv tool install cnpg-drill==0.1.2
 cnpg-drill plan --config examples/drill.json
 cnpg-drill run --config examples/drill.json --report reports/latest.json
 ```
+
+`pipx install cnpg-drill==0.1.2` is another way to install the CLI in its own environment. For source development, clone this repository and run `python3 -m pip install -e .`.
 
 `plan` reads the source configuration and prints the exact Cluster manifest it would create. Review that manifest before running the first drill. The example's table-count assertion is illustrative; replace it with an invariant from your own application. A minimal check is `SELECT 1`, but it only proves connection to the recovered server, not useful application data.
 

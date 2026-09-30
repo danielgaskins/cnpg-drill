@@ -29,7 +29,11 @@ Suggested PR body: “Adds `cnpg-drill`, a free kubectl plugin that restores a C
 
 ## 4. Helm discovery
 
-Publish the chart from this GitHub repository after its render/install/upgrade tests pass. Artifact Hub can index a chart repository, but indexing is a separate distribution route, not an upstream endorsement. The chart remains suspended by default and requires an explicit image repository.
+The tested chart is published as `oci://ghcr.io/danielgaskins/charts/cnpg-drill` and indexed on [Artifact Hub](https://artifacthub.io/packages/helm/cnpg-drill/cnpg-drill). It defaults to a suspended CronJob and pins a public image digest. Artifact Hub indexing is a distribution route, not an upstream endorsement.
+
+## 5. Python package
+
+The [PyPI package](https://pypi.org/project/cnpg-drill/) provides the CLI without cloning this repository. The v0.1.2 wheel and source distribution came from the matching GitHub release tag through the `pypi` trusted-publisher workflow. A fresh install from PyPI returned `cnpg-drill --version` as `0.1.2`.
 
 ## What would make inclusion plausible
 
