@@ -2,8 +2,8 @@ apiVersion: v2
 name: cnpg-drill
 description: Verify CloudNativePG Barman backups with disposable restores and read-only SQL checks
 type: application
-version: 0.1.2
-appVersion: "0.1.1"
+version: 0.1.3
+appVersion: "0.1.2"
 home: https://github.com/danielgaskins/cnpg-drill
 sources:
   - https://github.com/danielgaskins/cnpg-drill

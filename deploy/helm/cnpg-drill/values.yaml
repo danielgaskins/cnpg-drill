@@ -13,8 +13,8 @@ checks:
     expected: "1"
 image:
   repository: ghcr.io/danielgaskins/cnpg-drill
-  tag: "sha-564f9d7591b65a6dd0c456ea303f56bf5b66c000"
-  digest: sha256:2e42ad8dc96434a9ef42dd42b42a2c922d3ef49cd90ac1f5710968e521a3f628
+  tag: "sha-0f2f9d6c3303020a0f947b7e321d2c54057368c2"
+  digest: sha256:3bfb3f6a69d4da90790dedc4e9f9d21c703573ff6ad0798ca52dc3d66ebe8a21
   pullPolicy: IfNotPresent
 resources:
   requests:

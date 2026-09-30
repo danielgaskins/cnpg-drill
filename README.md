@@ -10,7 +10,7 @@ The core is free and works without an account or external service. It does not m
 
 The [v0.1.2 release](https://github.com/danielgaskins/cnpg-drill/releases/tag/v0.1.2) carries literal AWS checksum compatibility settings into recovery clusters without copying source credentials. It includes the MIT-licensed kubectl plugin archive and checksum. The [default Krew index submission](https://github.com/kubernetes-sigs/krew-index/pull/6373) and [custom Krew index submission](https://github.com/ishantanu/awesome-kubectl-plugins/pull/44) currently package v0.1.0 and are under review. [kubetools](https://github.com/collabnix/kubetools/pull/431) is reviewing a Backup Tools listing.
 
-The [Helm chart is listed on Artifact Hub](https://artifacthub.io/packages/helm/cnpg-drill/cnpg-drill) as a Verified Publisher package. Chart version `0.1.2` uses the v0.1.1 application image and includes the publisher's [website](https://danielgaskins.com/).
+The [Helm chart is listed on Artifact Hub](https://artifacthub.io/packages/helm/cnpg-drill/cnpg-drill) as a Verified Publisher package. Chart version `0.1.3` uses the v0.1.2 application image and includes the publisher's [website](https://danielgaskins.com/).
 
 ## What it supports
 
@@ -67,7 +67,7 @@ The example image build pins kubectl 1.36.4, suitable for Kubernetes 1.35–1.37
 
 ```bash
 helm install cnpg-drill oci://ghcr.io/danielgaskins/charts/cnpg-drill \
-  --version 0.1.2 -n production -f drill-values.yaml
+  --version 0.1.3 -n production -f drill-values.yaml
 ```
 
 See the [first-run guide](docs/FIRST-RUN.md) and [chart values](deploy/helm/cnpg-drill/README.md) for a suspended first run with a separate read-only recovery ObjectStore. The chart pins a public multi-architecture image digest. The CronJob uses `concurrencyPolicy: Forbid` and a bounded job deadline. Its logs contain the JSON result; failed runs have nonzero exit status. **The chart does not yet provide durable report storage, missed-run alerts, or fleet policy.**
