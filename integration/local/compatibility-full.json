@@ -1,0 +1,16 @@
+{
+  "namespace": "cnpg-drill-test",
+  "cluster": "compat-db",
+  "drillClusterName": "compat-db-restore",
+  "recoveryObjectStore": "drill-recovery-readonly",
+  "timeoutSeconds": 600,
+  "maxBackupAgeSeconds": 7200,
+  "checks": [
+    {
+      "name": "vector-data",
+      "database": "app",
+      "query": "SELECT embedding <-> '[1,2,3]'::vector FROM public.compatibility_vectors WHERE id=1",
+      "expected": "0"
+    }
+  ]
+}

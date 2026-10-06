@@ -4,7 +4,7 @@ import hashlib
 import json
 import unittest
 
-from cnpg_drill.core import Config, DrillError, Kubectl, build_manifest, choose_backup, prepare, recovery_failure_reason, run_drill
+from cnpg_drill.core import API, Config, DrillError, Kubectl, build_manifest, choose_backup, prepare, recovery_failure_reason, run_drill
 
 
 SOURCE = {
@@ -36,7 +36,20 @@ class FakeClient:
         if name in ("app-store", "recovery-store", "wrong-store"):
             destination = "s3://other/" if name == "wrong-store" else "s3://backups/"
             return {"metadata": {"name": name}, "spec": {"configuration": {"destinationPath": destination, "endpointURL": "https://s3.example.test"}}}
-        return {"status": {"readyInstances": 1 if self.ready else 0, "currentPrimary": f"{name}-1" if self.ready else ""}}
+        return {"metadata": copy.deepcopy(self.created["metadata"]) if self.created else {}, "status": {"readyInstances": 1 if self.ready else 0, "currentPrimary": f"{name}-1" if self.ready else ""}}
+
+    def get_optional(self, resource, name, namespace):
+        if self.created and self.created["metadata"]["name"] == name:
+            cluster = copy.deepcopy(self.created)
+            cluster["metadata"]["uid"] = "drill-uid"
+            return cluster
+        return None
+
+    def delete_owned_cluster(self, name, namespace, run_id):
+        cluster = self.get_optional(API, name, namespace)
+        if cluster and cluster["metadata"]["annotations"].get("cnpg-drill.dev/run-id") != run_id:
+            raise DrillError("Refusing cleanup: Cluster belongs to another run")
+        self.delete(API, name, namespace)
 
     def create(self, manifest, namespace):
         self.created = manifest
@@ -93,6 +106,112 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(observed, "1")
         self.assertEqual(calls[0][calls[0].index("-d") + 1], "app")
         self.assertIn("BEGIN READ ONLY; SELECT 1; COMMIT;", calls[0])
+
+
+class RecoveryCompatibilityTest(unittest.TestCase):
+    def test_rejects_source_name_and_invalid_names(self):
+        for name in ("app-db", "Other/namespace", "a" * 64, ""):
+            with self.subTest(name=name), self.assertRaisesRegex(DrillError, "drillClusterName"):
+                Config.from_dict({"namespace": "production", "cluster": "app-db", "drillClusterName": name})
+
+    def test_identity_requires_separate_store_and_supported_keys(self):
+        identity = {"eks.amazonaws.com/role-arn": "arn:aws:iam::123456789012:role/recovery-readonly"}
+        with self.assertRaisesRegex(DrillError, "separate recoveryObjectStore"):
+            Config.from_dict({"namespace": "production", "cluster": "app-db", "recoveryServiceAccountAnnotations": identity})
+        config = Config.from_dict({"namespace": "production", "cluster": "app-db", "recoveryObjectStore": "app-store", "recoveryServiceAccountAnnotations": identity})
+        with self.assertRaisesRegex(DrillError, "separate recoveryObjectStore"):
+            build_manifest(SOURCE, config, name="app-db-restore")
+        with self.assertRaisesRegex(DrillError, "supported cloud identity"):
+            Config.from_dict({"namespace": "production", "cluster": "app-db", "recoveryObjectStore": "recovery-store", "recoveryServiceAccountAnnotations": {"unrelated": "true"}})
+
+    def test_preserves_extensions_without_source_writer_identity(self):
+        source = copy.deepcopy(SOURCE)
+        source["spec"].update({"postgresql": {"extensions": [{"name": "pgvector", "image": {"reference": "example/pgvector@sha256:abc"}}], "shared_preload_libraries": ["pg_stat_statements"], "parameters": {"dynamic_library_path": "$libdir", "archive_command": "writer"}}, "serviceAccountTemplate": {"metadata": {"annotations": {"eks.amazonaws.com/role-arn": "writer-role"}}}, "imagePullSecrets": [{"name": "registry-pull"}]})
+        original = copy.deepcopy(source)
+        identity = {"eks.amazonaws.com/role-arn": "readonly-role"}
+        config = Config.from_dict({"namespace": "production", "cluster": "app-db", "recoveryObjectStore": "recovery-store", "recoveryServiceAccountAnnotations": identity})
+        spec = build_manifest(source, config, name="app-db-restore")["spec"]
+        self.assertEqual(spec["postgresql"]["extensions"], source["spec"]["postgresql"]["extensions"])
+        self.assertEqual(spec["postgresql"]["shared_preload_libraries"], ["pg_stat_statements"])
+        self.assertNotIn("archive_command", spec["postgresql"]["parameters"])
+        self.assertEqual(spec["serviceAccountTemplate"]["metadata"]["annotations"], identity)
+        self.assertEqual(spec["imagePullSecrets"], [{"name": "registry-pull"}])
+        self.assertEqual(source, original)
+        spec["postgresql"]["extensions"][0]["name"] = "changed"
+        self.assertEqual(source, original)
+        spec = build_manifest(source, Config(namespace="production", cluster="app-db"), name="app-db-restore")["spec"]
+        self.assertNotIn("serviceAccountTemplate", spec)
+
+    def test_extension_environment_is_not_inherited(self):
+        source = copy.deepcopy(SOURCE)
+        source["spec"]["postgresql"] = {"extensions": [{"name": "custom", "env": [{"name": "AWS_ACCESS_KEY_ID", "value": "writer"}]}]}
+        with self.assertRaisesRegex(DrillError, "Extension environment"):
+            build_manifest(source, Config(namespace="production", cluster="app-db"), name="app-db-restore")
+
+    def test_azure_identity_marks_recovery_pods(self):
+        config = Config.from_dict({"namespace": "production", "cluster": "app-db", "recoveryObjectStore": "recovery-store", "recoveryServiceAccountAnnotations": {"azure.workload.identity/client-id": "readonly-client"}})
+        spec = build_manifest(SOURCE, config, name="app-db-restore")["spec"]
+        self.assertEqual(spec["inheritedMetadata"]["labels"], {"azure.workload.identity/use": "true"})
+
+    def test_aws_default_endpoint_can_be_omitted(self):
+        class AWSStore(FakeClient):
+            def get(self, resource, name, namespace):
+                data = super().get(resource, name, namespace)
+                if resource == "objectstores.barmancloud.cnpg.io":
+                    data["spec"]["configuration"].pop("endpointURL", None)
+                return data
+        config = Config(namespace="production", cluster="app-db", recovery_object_store="recovery-store")
+        self.assertEqual(prepare(AWSStore(), config)["kind"], "Cluster")
+
+    def test_replacement_cluster_is_not_queried_or_deleted(self):
+        class Replaced(FakeClient):
+            def get(self, resource, name, namespace):
+                data = super().get(resource, name, namespace)
+                if self.created and name == self.created["metadata"]["name"]:
+                    self.created["metadata"]["annotations"]["cnpg-drill.dev/run-id"] = "other-run"
+                    data["metadata"]["annotations"]["cnpg-drill.dev/run-id"] = "other-run"
+                return data
+        client = Replaced()
+        report = run_drill(client, Config(namespace="production", cluster="app-db"))
+        self.assertEqual(report["status"], "failed")
+        self.assertEqual(client.queries, [])
+        self.assertIsNone(client.deleted)
+
+    def test_fixed_name_exists_is_preflight_failure_without_cleanup(self):
+        class Existing(FakeClient):
+            def get_optional(self, resource, name, namespace):
+                return {"metadata": {"name": name}}
+        client = Existing()
+        report = run_drill(client, Config(namespace="production", cluster="app-db", drill_cluster_name="app-db-restore"))
+        self.assertEqual(report["phase"], "preflight")
+        self.assertIsNone(client.created)
+        self.assertIsNone(client.deleted)
+
+    def test_competing_create_is_never_deleted(self):
+        class Competing(FakeClient):
+            def create(self, manifest, namespace):
+                self.created = copy.deepcopy(manifest)
+                self.created["metadata"]["annotations"]["cnpg-drill.dev/run-id"] = "other-run"
+                raise DrillError("AlreadyExists")
+        client = Competing()
+        report = run_drill(client, Config(namespace="production", cluster="app-db", drill_cluster_name="app-db-restore"))
+        self.assertEqual(report["cleanup"], "failed")
+        self.assertIsNone(client.deleted)
+
+    def test_delete_uses_uid_precondition(self):
+        calls = []
+        def invoke(argv, **kwargs):
+            calls.append((argv, kwargs))
+            data = {"metadata": {"uid": "owned-uid", "annotations": {"cnpg-drill.dev/run-id": "owned-run"}}}
+            return type("Result", (), {"returncode": 0, "stdout": json.dumps(data) if "get" in argv else "", "stderr": ""})()
+        client = Kubectl(invoke=invoke)
+        client.delete_owned_cluster("app-db-restore", "production", "owned-run")
+        self.assertEqual(json.loads(calls[1][1]["input"])["preconditions"], {"uid": "owned-uid"})
+        self.assertIn("--raw=/apis/postgresql.cnpg.io/v1/namespaces/production/clusters/app-db-restore", calls[1][0])
+        calls.clear()
+        with self.assertRaisesRegex(DrillError, "another run"):
+            client.delete_owned_cluster("app-db-restore", "production", "different-run")
+        self.assertEqual(len(calls), 1)
 
 
 class ManifestTest(unittest.TestCase):

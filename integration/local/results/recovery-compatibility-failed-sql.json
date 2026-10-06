@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "source": "cnpg-drill-test/app-db",
+  "startedAt": "2026-10-06T21:49:41.304072+00:00",
+  "targetTime": null,
+  "checks": [
+    {
+      "name": "intentional-failure",
+      "database": "postgres",
+      "observedSha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "passed": false
+    }
+  ],
+  "status": "failed",
+  "drillCluster": "drill-app-db-10062149-12d73c",
+  "sourceClusterUID": "72cacda6-e486-4424-b9ef-640cd61d7add",
+  "backupName": "parallel-probe-20261006210458",
+  "backupID": "20261006T210503",
+  "backupAgeSeconds": 2674,
+  "recoverySeconds": 61.36,
+  "error": "Check 'intentional-failure' did not meet its assertion",
+  "cleanup": "cluster-and-pvcs-deleted",
+  "finishedAt": "2026-10-06T21:50:50.749624+00:00",
+  "durationSeconds": 69.45,
+  "sourceSpecUnchanged": true
+}

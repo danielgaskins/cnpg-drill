@@ -1,0 +1,23 @@
+{
+  "namespace": "cnpg-drill-test",
+  "cluster": "compat-db",
+  "drillClusterName": "compat-db-restore",
+  "recoveryObjectStore": "drill-recovery-readonly",
+  "timeoutSeconds": 600,
+  "maxBackupAgeSeconds": 7200,
+  "checks": [
+    {
+      "name": "vector-distance",
+      "database": "app",
+      "query": "SELECT embedding <-> '[4,5,6]'::vector FROM public.compatibility_vectors WHERE id=2",
+      "expected": "0"
+    },
+    {
+      "name": "post-target-row-excluded",
+      "database": "app",
+      "query": "SELECT count(*) FROM public.compatibility_vectors WHERE id=3",
+      "expected": "0"
+    }
+  ],
+  "targetTime": "2026-10-06T21:47:34.218162Z"
+}
