@@ -10,7 +10,7 @@ import re
 import secrets
 import subprocess
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable
 
 
@@ -43,12 +43,14 @@ class Config:
     target_time: str | None = None
     checks: tuple[Check, ...] = (Check("connection", "SELECT 1", "1"),)
     retain_on_failure: bool = False
+    drill_cluster_name: str | None = None
+    recovery_service_account_annotations: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> Config:
         if not isinstance(raw, dict):
             raise DrillError("Config must be a JSON object")
-        allowed = {"namespace", "cluster", "recoveryObjectStore", "timeoutSeconds", "pollSeconds", "maxBackupAgeSeconds", "targetTime", "checks", "retainOnFailure"}
+        allowed = {"namespace", "cluster", "recoveryObjectStore", "timeoutSeconds", "pollSeconds", "maxBackupAgeSeconds", "targetTime", "checks", "retainOnFailure", "drillClusterName", "recoveryServiceAccountAnnotations"}
         unknown = set(raw) - allowed
         if unknown:
             raise DrillError(f"Unknown config keys: {', '.join(sorted(unknown))}")
@@ -59,6 +61,15 @@ class Config:
         recovery_object_store = raw.get("recoveryObjectStore")
         if recovery_object_store is not None and (not isinstance(recovery_object_store, str) or not DNS_NAME.fullmatch(recovery_object_store) or len(recovery_object_store) > 63):
             raise DrillError("recoveryObjectStore must be a Kubernetes DNS label")
+        drill_name = raw.get("drillClusterName")
+        if drill_name is not None and (not isinstance(drill_name, str) or not DNS_NAME.fullmatch(drill_name) or len(drill_name) > 63 or drill_name == cluster):
+            raise DrillError("drillClusterName must be a Kubernetes DNS label different from the source")
+        annotations = raw.get("recoveryServiceAccountAnnotations", {})
+        identity_keys = {"eks.amazonaws.com/role-arn", "azure.workload.identity/client-id", "azure.workload.identity/tenant-id"}
+        if not isinstance(annotations, dict) or set(annotations) - identity_keys or any(not isinstance(v, str) or not v or len(v) > 2048 for v in annotations.values()):
+            raise DrillError("recoveryServiceAccountAnnotations must contain supported cloud identity keys with nonempty string values")
+        if annotations and not recovery_object_store:
+            raise DrillError("Recovery cloud identity requires a separate recoveryObjectStore")
         timeout = raw.get("timeoutSeconds", 1800)
         poll = raw.get("pollSeconds", 5)
         max_backup_age = raw.get("maxBackupAgeSeconds", 691200)
@@ -106,7 +117,7 @@ class Config:
         retained = raw.get("retainOnFailure", False)
         if type(retained) is not bool:
             raise DrillError("retainOnFailure must be boolean")
-        return cls(namespace, cluster, recovery_object_store, timeout, poll, max_backup_age, target, tuple(checks), retained)
+        return cls(namespace, cluster, recovery_object_store, timeout, poll, max_backup_age, target, tuple(checks), retained, drill_name, copy.deepcopy(annotations))
 
 
 class Kubectl:
@@ -125,6 +136,24 @@ class Kubectl:
 
     def get(self, resource: str, name: str, namespace: str) -> dict[str, Any]:
         return json.loads(self.call(["-n", namespace, "get", resource, name, "-o", "json"]))
+
+    def get_optional(self, resource: str, name: str, namespace: str) -> dict[str, Any] | None:
+        data = self.call(["-n", namespace, "get", resource, name, "--ignore-not-found", "-o", "json"])
+        return json.loads(data) if data.strip() else None
+
+    def delete_owned_cluster(self, name: str, namespace: str, run_id: str) -> None:
+        cluster = self.get_optional(API, name, namespace)
+        if cluster is None:
+            return
+        metadata = cluster.get("metadata", {})
+        if metadata.get("annotations", {}).get("cnpg-drill.dev/run-id") != run_id:
+            raise DrillError("Refusing cleanup: Cluster belongs to another run")
+        uid = metadata.get("uid")
+        if not isinstance(uid, str) or not uid:
+            raise DrillError("Refusing cleanup: Cluster UID is missing")
+        options = {"apiVersion": "v1", "kind": "DeleteOptions", "preconditions": {"uid": uid}, "propagationPolicy": "Background"}
+        self.call(["delete", f"--raw=/apis/postgresql.cnpg.io/v1/namespaces/{namespace}/clusters/{name}", "-f", "-"], input_text=json.dumps(options))
+        self.call(["-n", namespace, "wait", "--for=delete", f"{API}/{name}", "--timeout=120s"], timeout=135)
 
     def list_pvcs(self, cluster: str, namespace: str) -> list[str]:
         data = json.loads(self.call(["-n", namespace, "get", "pvc", "-l", f"cnpg.io/cluster={cluster}", "-o", "json"]))
@@ -245,9 +274,24 @@ def build_manifest(source: dict[str, Any], config: Config, *, name: str, backup:
         "metadata": {"name": name, "namespace": config.namespace, "labels": {"app.kubernetes.io/managed-by": "cnpg-drill", "cnpg-drill.dev/source": config.cluster}, "annotations": {"cnpg-drill.dev/source-uid": source.get("metadata", {}).get("uid", ""), "cnpg-drill.dev/backup-name": backup.get("metadata", {}).get("name", "") if backup else ""}},
         "spec": {"instances": 1, "storage": storage, "bootstrap": {"recovery": recovery}, "externalClusters": [external]},
     }
-    for key in ("imageName", "imageCatalogRef", "resources"):
+    for key in ("imageName", "imageCatalogRef", "imagePullSecrets", "resources"):
         if key in spec:
             output["spec"][key] = copy.deepcopy(spec[key])
+    postgresql = spec.get("postgresql") or {}
+    if any(extension.get("env") for extension in postgresql.get("extensions", [])):
+        raise DrillError("Extension environment variables require explicit recovery review; refusing inherited credentials")
+    recovery_postgresql = {key: copy.deepcopy(postgresql[key]) for key in ("extensions", "shared_preload_libraries") if key in postgresql}
+    paths = {key: value for key, value in postgresql.get("parameters", {}).items() if key in {"extension_control_path", "dynamic_library_path"}}
+    if paths:
+        recovery_postgresql["parameters"] = copy.deepcopy(paths)
+    if recovery_postgresql:
+        output["spec"]["postgresql"] = recovery_postgresql
+    if config.recovery_service_account_annotations:
+        if not config.recovery_object_store or config.recovery_object_store == object_name:
+            raise DrillError("Recovery cloud identity requires a separate recoveryObjectStore")
+        output["spec"]["serviceAccountTemplate"] = {"metadata": {"annotations": copy.deepcopy(config.recovery_service_account_annotations)}}
+        if "azure.workload.identity/client-id" in config.recovery_service_account_annotations:
+            output["spec"]["inheritedMetadata"] = {"labels": {"azure.workload.identity/use": "true"}}
     if "walStorage" in spec:
         output["spec"]["walStorage"] = fresh_storage(spec["walStorage"], "walStorage")
     # S3-compatible stores may need these boto3 settings during recovery too.
@@ -303,7 +347,7 @@ def prepare(client: Kubectl, config: Config, name: str | None = None) -> dict[st
     source_plugins = [p for p in source.get("spec", {}).get("plugins", []) if p.get("name") == PLUGIN and p.get("enabled", True)]
     object_name = source_plugins[0].get("parameters", {}).get("barmanObjectName") if len(source_plugins) == 1 else None
     backup, age = choose_backup(client.list_backups(config.namespace), config, object_name)
-    manifest = build_manifest(source, config, name=name or new_name(config.cluster), backup=backup)
+    manifest = build_manifest(source, config, name=name or config.drill_cluster_name or new_name(config.cluster), backup=backup)
     manifest["metadata"]["annotations"]["cnpg-drill.dev/backup-age-seconds"] = str(age)
     if not object_name:
         raise DrillError("Source needs one enabled Barman Cloud plugin")
@@ -314,8 +358,10 @@ def prepare(client: Kubectl, config: Config, name: str | None = None) -> dict[st
         source_config = source_store.get("spec", {}).get("configuration", {})
         recovery_config = recovery_store.get("spec", {}).get("configuration", {})
         for field in ("destinationPath", "endpointURL"):
-            if not source_config.get(field) or source_config.get(field) != recovery_config.get(field):
+            if (field == "destinationPath" and not source_config.get(field)) or source_config.get(field) != recovery_config.get(field):
                 raise DrillError(f"Recovery ObjectStore {field} must match source ObjectStore")
+    if config.drill_cluster_name and client.get_optional(API, manifest["metadata"]["name"], config.namespace) is not None:
+        raise DrillError("Configured drillClusterName already exists; inspect it before retrying")
     return manifest
 
 
@@ -325,6 +371,7 @@ def run_drill(client: Kubectl, config: Config, *, sleep: Callable[[float], None]
     result: dict[str, Any] = {"schemaVersion": 1, "source": f"{config.namespace}/{config.cluster}", "startedAt": started_at.isoformat(), "targetTime": config.target_time, "checks": [], "status": "error"}
     name: str | None = None
     created = False
+    run_id = secrets.token_hex(16)
     try:
         manifest = prepare(client, config)
         name = manifest["metadata"]["name"]
@@ -333,15 +380,18 @@ def run_drill(client: Kubectl, config: Config, *, sleep: Callable[[float], None]
         result["backupName"] = manifest["metadata"]["annotations"]["cnpg-drill.dev/backup-name"]
         result["backupID"] = manifest["spec"]["bootstrap"]["recovery"]["recoveryTarget"]["backupID"]
         result["backupAgeSeconds"] = int(manifest["metadata"]["annotations"]["cnpg-drill.dev/backup-age-seconds"])
+        manifest["metadata"]["annotations"]["cnpg-drill.dev/run-id"] = run_id
         created = True
         # A create request can reach the API even if the client loses its response.
-        # In that case, still try to remove the uniquely named drill Cluster.
+        # In that case, remove only a Cluster bearing this run's ownership token.
         client.create(manifest, config.namespace)
         recovery_started = monotonic()
         deadline = started + config.timeout_seconds
         primary = None
         while monotonic() < deadline:
             cluster = client.get(API, name, config.namespace)
+            if cluster.get("metadata", {}).get("annotations", {}).get("cnpg-drill.dev/run-id") != run_id:
+                raise DrillError("Recovery Cluster belongs to another run; refusing SQL checks")
             status = cluster.get("status", {})
             if status.get("readyInstances", 0) >= 1 and status.get("currentPrimary"):
                 primary = status["currentPrimary"]
@@ -391,7 +441,7 @@ def run_drill(client: Kubectl, config: Config, *, sleep: Callable[[float], None]
     finally:
         if created and name and not (result["status"] == "failed" and config.retain_on_failure):
             try:
-                client.delete(API, name, config.namespace)
+                client.delete_owned_cluster(name, config.namespace, run_id)
                 cleanup_deadline = monotonic() + 60
                 remaining = client.list_pvcs(name, config.namespace)
                 while remaining and monotonic() < cleanup_deadline:

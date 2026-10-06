@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "source": "cnpg-drill-test/compat-db",
+  "startedAt": "2026-10-06T21:49:40.208361+00:00",
+  "targetTime": null,
+  "checks": [],
+  "status": "failed",
+  "error": "Configured drillClusterName already exists; inspect it before retrying",
+  "phase": "preflight",
+  "finishedAt": "2026-10-06T21:49:40.900244+00:00",
+  "durationSeconds": 0.69
+}

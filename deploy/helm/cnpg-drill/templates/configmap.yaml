@@ -11,4 +11,10 @@ data:
     {{- if .Values.recoveryObjectStore -}}
     {{- $_ := set $config "recoveryObjectStore" .Values.recoveryObjectStore -}}
     {{- end -}}
+    {{- if .Values.drillClusterName -}}
+    {{- $_ := set $config "drillClusterName" .Values.drillClusterName -}}
+    {{- end -}}
+    {{- if .Values.recoveryServiceAccountAnnotations -}}
+    {{- $_ := set $config "recoveryServiceAccountAnnotations" .Values.recoveryServiceAccountAnnotations -}}
+    {{- end -}}
     {{- $config | toJson | nindent 4 }}

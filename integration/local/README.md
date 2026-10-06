@@ -152,3 +152,42 @@ The v0.1.3 image was published at `sha256:4289a18f8346be448b9acd9da87424b6b51bae
 An initial PITR fixture failed because its target timestamp was captured before the write committed. A later attempt hit a missing WAL segment because `pg_switch_wal()` ran in the same SQL command as a write. The fixture helper now separates those transactions and waits for the required archive segment. The test has not yet proven behavior for corrupted objects, other object stores, or other PostgreSQL and operator versions.
 
 To remove this fixture, delete only the test namespace: `kubectl delete namespace cnpg-drill-test`. The K3s uninstall script removes the local runtime and its data; run it only when that is intended.
+
+## Recovery-policy and extension validation (v0.1.4 development)
+
+On 2026-10-06, a separate `compat-db` fixture used PostgreSQL
+`18.6-system-trixie` and pgvector `0.8.2-18-trixie` through an ImageVolume.
+Kubernetes 1.35.8, CNPG 1.30.1, Barman Cloud plugin 0.15.0 and RustFS 1.0.0
+were unchanged. [The source manifest](compatibility-source.json) uses the
+existing local writer store; recovery uses `drill-recovery-readonly`. No cloud
+authentication was exercised.
+
+A completed backup was restored using fixed name `compat-db-restore`. The
+[full check](compatibility-full.json) loaded the recovered vector type and ran
+a vector-distance assertion. The [PITR check](compatibility-pitr.json) restored
+a row committed after that backup and excluded a row committed after the target.
+Reports confirmed unchanged source specs and Cluster/PVC cleanup; backing PV
+removal was inspected separately.
+
+| Case | Evidence | Result |
+| --- | --- | --- |
+| Full restore and vector function | [report](results/recovery-compatibility-full.json) | Passed |
+| PITR and vector function | [report](results/recovery-compatibility-pitr.json) | Passed |
+| Deliberately incorrect SQL assertion | [report](results/recovery-compatibility-failed-sql.json) | Failed as expected; cleaned up |
+| Denied WAL reads | [report](results/recovery-compatibility-denied-wal.json) | Archive access denial; cleaned up |
+| Occupied fixed name | [report](results/recovery-compatibility-occupied-name.json) | Preflight rejection; active restore unchanged |
+
+A deliberate DELETE with the wrong UID returned a Kubernetes conflict and left
+the active restore unchanged. Unit tests cover competing creates, replacement
+Clusters, lost create responses, explicit recovery identity, and extension
+credential rejection. All 39 tests passed on Python 3.10 and 3.14. Helm lint,
+rendered-config parsing and recovery-manifest server dry-run passed.
+
+Fixed names require one scheduler. During validation, a second restore started
+after the first Cluster disappeared but before its PVC cleanup completed; the
+first run failed its cleanup check. A sequential rerun passed. Do not start the
+next drill until the previous report and storage cleanup are complete.
+
+The recovery IAM/Workload Identity manifest passed local API validation. Actual
+AWS/Azure authorization and Giant Swarm's Cilium/IRSA environment remain
+untested. These results do not establish compatibility with that whole platform.

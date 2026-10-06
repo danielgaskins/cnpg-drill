@@ -92,3 +92,11 @@ Turn on recurring drills only after validating the checks, restore cost,
 cleanup, storage permissions, and alert routing for your cluster.
 
 Maintained by [Daniel Gaskins](https://danielgaskins.com/).
+
+## Development recovery options
+
+The development chart forwards `drillClusterName` and
+`recoveryServiceAccountAnnotations` to the drill config. They require a matching
+development image; the published chart 0.1.5 and CLI v0.1.3 do not support them.
+See the [recovery policy guide](../../../docs/FIRST-RUN.md#recovery-policies-and-extension-images-development)
+for ownership checks, read-only identity setup, extension images and test limits.

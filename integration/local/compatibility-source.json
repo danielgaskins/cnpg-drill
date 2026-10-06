@@ -1,0 +1,45 @@
+{
+  "apiVersion": "postgresql.cnpg.io/v1",
+  "kind": "Cluster",
+  "metadata": {
+    "name": "compat-db",
+    "namespace": "cnpg-drill-test"
+  },
+  "spec": {
+    "instances": 1,
+    "imageName": "ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie",
+    "storage": {
+      "size": "1Gi"
+    },
+    "postgresql": {
+      "extensions": [
+        {
+          "name": "pgvector",
+          "image": {
+            "reference": "ghcr.io/cloudnative-pg/pgvector:0.8.2-18-trixie"
+          }
+        }
+      ]
+    },
+    "bootstrap": {
+      "initdb": {
+        "database": "app",
+        "owner": "app",
+        "postInitApplicationSQL": [
+          "CREATE EXTENSION vector",
+          "CREATE TABLE compatibility_vectors (id integer PRIMARY KEY, embedding vector(3))",
+          "INSERT INTO compatibility_vectors VALUES (1, '[1,2,3]')"
+        ]
+      }
+    },
+    "plugins": [
+      {
+        "name": "barman-cloud.cloudnative-pg.io",
+        "isWALArchiver": true,
+        "parameters": {
+          "barmanObjectName": "drill-store"
+        }
+      }
+    ]
+  }
+}

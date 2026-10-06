@@ -39,6 +39,52 @@ For a suspended CronJob and a one-time Job, use the
 restore passes, test a PITR target inside your retained WAL history. A drill
 that fails because WAL is unavailable is useful evidence of a recovery gap.
 
+## Recovery policies and extension images (development)
+
+These options are under development and are not available in v0.1.3 or chart
+0.1.5. Use a build from this branch when validating them.
+
+Set `drillClusterName` when a network policy or cloud role requires a specific
+recovery name, such as `app-db-restore`. The name must differ from the source.
+An existing Cluster at that name stops the drill before creation. Use one
+scheduler for that name. Cleanup checks a per-run ownership token and sends a
+UID precondition to Kubernetes; a competing or replacement Cluster is left
+alone and the report fails. Inspect leftovers before retrying.
+
+For workload identity, set `recoveryServiceAccountAnnotations` explicitly on
+the recovery Cluster's ServiceAccount. Supported keys are
+`eks.amazonaws.com/role-arn`, `azure.workload.identity/client-id`, and
+`azure.workload.identity/tenant-id`. Azure client identity also adds
+`azure.workload.identity/use: "true"` to recovery Pods. The source's identity
+annotations are not copied. A separate `recoveryObjectStore` is required;
+provision and verify its read-only recovery identity and the required namespace,
+ServiceAccount trust and network access before execution. The tool cannot
+verify IAM privileges. Local testing does not establish AWS or Azure access.
+
+```json
+{
+  "drillClusterName": "app-db-restore",
+  "recoveryObjectStore": "app-db-recovery-readonly",
+  "recoveryServiceAccountAnnotations": {
+    "eks.amazonaws.com/role-arn": "arn:aws:iam::123456789012:role/postgres-recovery-readonly"
+  }
+}
+```
+
+Add these fields to a complete drill config with application assertions. The
+same keys are available in development Helm values. Test the pinned recovery
+image before enabling scheduling.
+
+The restore preserves source `postgresql.extensions`,
+`shared_preload_libraries`, custom extension/library paths, and image pull
+Secret references. Extension binaries must match the PostgreSQL major version,
+distribution and architecture. ImageVolume extensions need a compatible
+Kubernetes/container runtime. Assert recovered extension data or functions;
+connectivity alone does not test extension loading. The database's extension
+state comes from the backup; the drill does not run `CREATE EXTENSION`.
+Custom extension environment variables are rejected rather than inheriting
+potential writer credentials.
+
 ## Share what happened
 
 If you can, [open a recovery feedback issue](https://github.com/danielgaskins/cnpg-drill/issues/new?template=recovery-feedback.md).

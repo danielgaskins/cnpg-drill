@@ -1,0 +1,25 @@
+{
+  "backupAgeSeconds": 153,
+  "backupID": "20261006T214627",
+  "backupName": "compat-db-full",
+  "checks": [
+    {
+      "database": "app",
+      "name": "vector-data",
+      "observedSha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "passed": true
+    }
+  ],
+  "cleanup": "cluster-and-pvcs-deleted",
+  "drillCluster": "compat-db-restore",
+  "durationSeconds": 66.21,
+  "finishedAt": "2026-10-06T21:50:09.890727+00:00",
+  "recoverySeconds": 56.27,
+  "schemaVersion": 1,
+  "source": "cnpg-drill-test/compat-db",
+  "sourceClusterUID": "d680f2ec-de9b-4f97-b924-96061c34d914",
+  "sourceSpecUnchanged": true,
+  "startedAt": "2026-10-06T21:49:03.680577+00:00",
+  "status": "passed",
+  "targetTime": null
+}
