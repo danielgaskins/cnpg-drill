@@ -1,0 +1,30 @@
+{
+  "backupAgeSeconds": 1093,
+  "backupID": "20261006T214627",
+  "backupName": "compat-db-full",
+  "checks": [
+    {
+      "database": "app",
+      "name": "vector-distance",
+      "observedSha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "passed": true
+    },
+    {
+      "database": "app",
+      "name": "post-target-row-excluded",
+      "observedSha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "passed": true
+    }
+  ],
+  "cleanup": "cluster-and-pvcs-deleted",
+  "drillCluster": "compat-db-restore",
+  "durationSeconds": 67.38,
+  "finishedAt": "2026-10-06T22:05:50.816959+00:00",
+  "recoverySeconds": 57.21,
+  "schemaVersion": 1,
+  "source": "cnpg-drill-test/compat-db",
+  "sourceClusterUID": "d680f2ec-de9b-4f97-b924-96061c34d914",
+  "startedAt": "2026-10-06T22:04:43.432904+00:00",
+  "status": "passed",
+  "targetTime": "2026-10-06T21:47:34.218162Z"
+}

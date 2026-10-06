@@ -31,7 +31,7 @@ ObjectStores. The default image is pinned to a published digest.
 
 ```bash
 helm install recovery-check oci://ghcr.io/danielgaskins/charts/cnpg-drill \
-  --version 0.1.5 --namespace production --values drill-values.yaml
+  --version 0.1.6 --namespace production --values drill-values.yaml
 kubectl -n production create job recovery-check-manual \
   --from=cronjob/recovery-check-cnpg-drill
 kubectl -n production wait --for=condition=complete job/recovery-check-manual --timeout=35m
@@ -93,10 +93,13 @@ cleanup, storage permissions, and alert routing for your cluster.
 
 Maintained by [Daniel Gaskins](https://danielgaskins.com/).
 
-## Development recovery options
+## Recovery policies
 
-The development chart forwards `drillClusterName` and
-`recoveryServiceAccountAnnotations` to the drill config. They require a matching
-development image; the published chart 0.1.5 and CLI v0.1.3 do not support them.
-See the [recovery policy guide](../../../docs/FIRST-RUN.md#recovery-policies-and-extension-images-development)
+The chart forwards `drillClusterName` and
+`recoveryServiceAccountAnnotations` to the drill config. They require chart
+0.1.6 and CLI v0.1.4 or later.
+See the [recovery policy guide](../../../docs/FIRST-RUN.md#recovery-policies-and-extension-images)
 for ownership checks, read-only identity setup, extension images and test limits.
+
+The namespace-scoped Role allows listing and watching Clusters so kubectl can
+wait for deletion during cleanup. It does not grant access to other namespaces.

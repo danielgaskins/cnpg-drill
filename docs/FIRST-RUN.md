@@ -39,10 +39,9 @@ For a suspended CronJob and a one-time Job, use the
 restore passes, test a PITR target inside your retained WAL history. A drill
 that fails because WAL is unavailable is useful evidence of a recovery gap.
 
-## Recovery policies and extension images (development)
+## Recovery policies and extension images
 
-These options are under development and are not available in v0.1.3 or chart
-0.1.5. Use a build from this branch when validating them.
+These options require CLI v0.1.4 or chart 0.1.6 or later.
 
 Set `drillClusterName` when a network policy or cloud role requires a specific
 recovery name, such as `app-db-restore`. The name must differ from the source.
@@ -72,7 +71,7 @@ verify IAM privileges. Local testing does not establish AWS or Azure access.
 ```
 
 Add these fields to a complete drill config with application assertions. The
-same keys are available in development Helm values. Test the pinned recovery
+same keys are available in Helm values. Test the pinned recovery
 image before enabling scheduling.
 
 The restore preserves source `postgresql.extensions`,

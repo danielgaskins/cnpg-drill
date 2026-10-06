@@ -191,3 +191,11 @@ next drill until the previous report and storage cleanup are complete.
 The recovery IAM/Workload Identity manifest passed local API validation. Actual
 AWS/Azure authorization and Giant Swarm's Cilium/IRSA environment remain
 untested. These results do not establish compatibility with that whole platform.
+
+The chart 0.1.6 candidate then passed the same full and PITR vector checks using
+the v0.1.4 amd64 container under its namespace-scoped ServiceAccount. The
+container index also includes an arm64 build, which was not run here. Cluster
+list/watch permissions were added for kubectl's deletion wait. Reports:
+[full](results/chart-v016-full.json) and [PITR](results/chart-v016-pitr.json).
+Temporary Clusters, Pods, PVCs and backing PVs were absent after both runs. The
+source spec stayed unchanged during the PITR run.

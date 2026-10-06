@@ -5,7 +5,7 @@ metadata:
 rules:
   - apiGroups: ["postgresql.cnpg.io"]
     resources: ["clusters"]
-    verbs: ["get", "create", "delete"]
+    verbs: ["get", "list", "watch", "create", "delete"]
   - apiGroups: ["postgresql.cnpg.io"]
     resources: ["backups"]
     verbs: ["list"]
