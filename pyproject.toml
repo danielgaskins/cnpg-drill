@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cnpg-drill"
-version = "0.1.4"
+version = "0.1.5"
 description = "Prove CloudNativePG Barman backups restore into an isolated cluster"
 readme = "README.md"
 requires-python = ">=3.10"
