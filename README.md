@@ -26,7 +26,7 @@ The Python CLI is also [published on PyPI](https://pypi.org/project/cnpg-drill/)
 - A JSON report on stdout and optionally in a local file. Query outputs are hashed rather than logged. Exit code 0 means all checks, Cluster deletion, and PVC cleanup passed; 1 means the drill failed; 2 means invalid input or a failed preflight.
 - Scheduled execution with the Helm CronJob in `deploy/helm/cnpg-drill`.
 
-The CLI refuses source clusters with tablespaces or recovery bootstrap because a naive clone could produce an incomplete or misleading pass. Volume snapshots, cross-namespace restores, cross-region recovery, custom extension environment variables, and multi-cluster fleet management are future work.
+The CLI refuses tablespaces, active replicas, distributed replica topologies, and `pg_basebackup` bootstrap sources. **Development version:** a primary originally bootstrapped from an external recovery source is supported once it has its own completed plugin backup. Released CLI 0.1.4 still rejects these sources. Preflight verifies its primary Pod belongs to the source Cluster and PostgreSQL is no longer in recovery; the drill uses the current writer archive and the selected new backup, not the original recovery source. Volume snapshots, cross-namespace restores, cross-region recovery, custom extension environment variables, and multi-cluster fleet management are future work.
 
 ## Install and use
 
@@ -42,7 +42,7 @@ cnpg-drill run --config examples/drill.json --report reports/latest.json
 
 `pipx install cnpg-drill==0.1.4` is another way to install the CLI in its own environment. For source development, clone this repository and run `python3 -m pip install -e .`.
 
-`plan` reads the source configuration and prints the exact Cluster manifest it would create. Review that manifest before running the first drill. The example's table-count assertion is illustrative; replace it with an invariant from your own application. A minimal check is `SELECT 1`, but it only proves connection to the recovered server, not useful application data.
+`plan` reads the source configuration and prints the exact Cluster manifest it would create. For recovered-primary sources, it also verifies the source Pod ownership and runs a read-only `pg_is_in_recovery()` query against the source primary. Review that manifest before running the first drill. The example's table-count assertion is illustrative; replace it with an invariant from your own application. A minimal check is `SELECT 1`, but it only proves connection to the recovered server, not useful application data.
 
 Example `drill.json`:
 
