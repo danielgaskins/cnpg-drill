@@ -31,7 +31,7 @@ ObjectStores. The default image is pinned to a published digest.
 
 ```bash
 helm install recovery-check oci://ghcr.io/danielgaskins/charts/cnpg-drill \
-  --version 0.1.6 --namespace production --values drill-values.yaml
+  --version 0.1.7 --namespace production --values drill-values.yaml
 kubectl -n production create job recovery-check-manual \
   --from=cronjob/recovery-check-cnpg-drill
 kubectl -n production wait --for=condition=complete job/recovery-check-manual --timeout=35m
@@ -103,3 +103,12 @@ for ownership checks, read-only identity setup, extension images and test limits
 
 The namespace-scoped Role allows listing and watching Clusters so kubectl can
 wait for deletion during cleanup. It does not grant access to other namespaces.
+
+## Recovered primary sources
+
+Chart 0.1.7 uses CLI v0.1.5, which supports a primary originally restored from an
+external source once it has its own completed Barman plugin backup. Preflight
+checks the source Pod ownership and confirms PostgreSQL has left recovery in a
+read-only transaction. The drill reads the current writer archive and the new
+backup; it does not reuse the old bootstrap recovery target. The existing Role
+permits this source Pod lookup and read-only exec check.

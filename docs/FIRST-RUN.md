@@ -84,6 +84,21 @@ state comes from the backup; the drill does not run `CREATE EXTENSION`.
 Custom extension environment variables are rejected rather than inheriting
 potential writer credentials.
 
+## Recovered primary sources
+
+CLI v0.1.5 and chart 0.1.7 support a primary originally bootstrapped through
+`bootstrap.recovery.source`. Wait until PostgreSQL has completed recovery and
+the source has its own completed plugin backup in its current writer archive.
+Both `plan` and `run` verify the ready primary Pod's Cluster ownership and run
+`pg_is_in_recovery()` in a read-only transaction against that source Pod.
+The result must be false before the tool creates a drill Cluster.
+
+The drill selects the source's new backup and current writer server name.
+It preserves the application database, owner and Secret reference from the
+recovery bootstrap, without copying the old recovery target or replica
+configuration. Active replicas, distributed replica topologies and
+`pg_basebackup` bootstrap sources remain unsupported.
+
 ## Share what happened
 
 If you can, [open a recovery feedback issue](https://github.com/danielgaskins/cnpg-drill/issues/new?template=recovery-feedback.md).
