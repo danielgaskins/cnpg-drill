@@ -410,5 +410,95 @@ class RunTest(unittest.TestCase):
         self.assertEqual(report["cleanup"], "cluster-and-pvcs-deleted")
 
 
+
+
+class RecoveredPrimaryTest(unittest.TestCase):
+    def source(self):
+        source = copy.deepcopy(SOURCE)
+        source['spec']['bootstrap'] = {'recovery': {'source': 'old-origin', 'database': 'orders', 'owner': 'orders_user', 'recoveryTarget': {'backupID': 'old-backup'}}}
+        source['spec']['externalClusters'] = [{'name': 'old-origin', 'plugin': {'parameters': {'barmanObjectName': 'old-store', 'serverName': 'old-server'}}}]
+        source['spec']['plugins'][0]['parameters']['serverName'] = 'revision-2'
+        source['status'] = {'readyInstances': 1, 'currentPrimary': 'app-db-1'}
+        return source
+
+    def client(self, source=None, *, in_recovery='f', owned=True):
+        source = source or self.source()
+        class Client(FakeClient):
+            def get(self, resource, name, namespace):
+                if resource == API and name == 'app-db':
+                    return copy.deepcopy(source)
+                if resource == 'pods':
+                    return {'metadata': {'labels': {'cnpg.io/cluster': 'app-db'}, 'ownerReferences': [{'apiVersion': 'postgresql.cnpg.io/v1', 'kind': 'Cluster', 'uid': source['metadata']['uid'] if owned else 'another-source'}]}}
+                return super().get(resource, name, namespace)
+
+            def exec_query(self, pod, namespace, query, database='postgres'):
+                if query == 'SELECT pg_is_in_recovery()':
+                    self.queries.append((pod, database, query))
+                    return in_recovery
+                return super().exec_query(pod, namespace, query, database)
+        return Client()
+
+    def test_recovered_primary_uses_new_backup_and_current_writer_archive(self):
+        source = self.source()
+        original = copy.deepcopy(source)
+        client = self.client(source)
+        config = Config(namespace='production', cluster='app-db', recovery_object_store='recovery-store')
+        manifest = prepare(client, config, name='app-db-drill')
+        spec = manifest['spec']
+        self.assertEqual(spec['bootstrap']['recovery']['recoveryTarget'], {'backupID': '20260929T120000'})
+        self.assertEqual(spec['bootstrap']['recovery']['database'], 'orders')
+        self.assertEqual(spec['bootstrap']['recovery']['owner'], 'orders_user')
+        self.assertEqual(spec['externalClusters'][0]['plugin']['parameters'], {'barmanObjectName': 'recovery-store', 'serverName': 'revision-2'})
+        self.assertNotIn('plugins', spec)
+        self.assertEqual(source, original)
+        self.assertEqual(client.queries, [('app-db-1', 'postgres', 'SELECT pg_is_in_recovery()')])
+
+    def test_recovered_source_needs_its_own_completed_backup(self):
+        with self.assertRaisesRegex(DrillError, 'own completed plugin backup'):
+            build_manifest(self.source(), Config(namespace='production', cluster='app-db'), name='app-db-drill')
+
+    def test_recovered_source_rejects_original_or_non_plugin_backup(self):
+        config = Config(namespace='production', cluster='app-db')
+        for change in ['different-source', 'snapshot']:
+            backup = FakeClient().list_backups('production')[0]
+            if change == 'different-source':
+                backup['spec']['cluster']['name'] = 'old-origin'
+            else:
+                backup['status']['method'] = 'volumeSnapshot'
+            with self.subTest(change=change), self.assertRaisesRegex(DrillError, 'own completed plugin backup'):
+                build_manifest(self.source(), config, name='app-db-drill', backup=backup)
+
+    def test_replica_configuration_is_rejected_even_with_initdb_history(self):
+        for replica in [{'enabled': True, 'source': 'other'}, {'primary': 'app-db', 'source': 'other'}]:
+            source = copy.deepcopy(SOURCE)
+            source['spec']['replica'] = replica
+            with self.subTest(replica=replica), self.assertRaisesRegex(DrillError, 'Replica clusters'):
+                build_manifest(source, Config(namespace='production', cluster='app-db'), name='app-db-drill')
+
+    def test_postgresql_still_in_recovery_fails_before_create(self):
+        for value in ['t', '', 'unexpected']:
+            client = self.client(in_recovery=value)
+            report = run_drill(client, Config(namespace='production', cluster='app-db'))
+            self.assertEqual(report['status'], 'failed')
+            self.assertEqual(report['phase'], 'preflight')
+            self.assertIsNone(client.created)
+            self.assertIsNone(client.deleted)
+
+    def test_source_pod_owner_mismatch_prevents_exec_and_create(self):
+        client = self.client(owned=False)
+        report = run_drill(client, Config(namespace='production', cluster='app-db'))
+        self.assertEqual(report['phase'], 'preflight')
+        self.assertEqual(client.queries, [])
+        self.assertIsNone(client.created)
+
+    def test_source_without_ready_primary_prevents_exec(self):
+        source = self.source()
+        source['status']['readyInstances'] = 0
+        client = self.client(source)
+        with self.assertRaisesRegex(DrillError, 'ready primary'):
+            prepare(client, Config(namespace='production', cluster='app-db'))
+        self.assertEqual(client.queries, [])
+
+
 if __name__ == "__main__":
     unittest.main()

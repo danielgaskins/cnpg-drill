@@ -245,10 +245,25 @@ def build_manifest(source: dict[str, Any], config: Config, *, name: str, backup:
     if spec.get("tablespaces"):
         raise DrillError("Tablespace clusters are not supported in v0.1; refusing incomplete restore")
     bootstrap = spec.get("bootstrap") or {}
-    if bootstrap.get("recovery") or bootstrap.get("pg_basebackup"):
-        raise DrillError("Replica or recovery-source clusters are not supported in v0.1")
-    if bootstrap and "initdb" not in bootstrap:
-        raise DrillError("Only default or initdb bootstrap sources are supported in v0.1")
+    replica = spec.get("replica") or {}
+    if replica.get("enabled") or replica.get("primary"):
+        raise DrillError("Replica clusters and distributed replica topologies are not supported")
+    if bootstrap.get("pg_basebackup"):
+        raise DrillError("pg_basebackup bootstrap sources are not supported")
+    recovered = bootstrap.get("recovery")
+    if recovered:
+        if not isinstance(recovered, dict) or not recovered.get("source"):
+            raise DrillError("Recovery bootstrap must have a named external source")
+        backup_status = backup.get("status", {}) if backup else {}
+        backup_spec = backup.get("spec", {}) if backup else {}
+        if (
+            backup_status.get("phase") != "completed" or not backup_status.get("backupId")
+            or backup_spec.get("cluster", {}).get("name") != config.cluster
+            or (backup_status.get("method") or backup_spec.get("method")) != "plugin"
+        ):
+            raise DrillError("Recovered primary sources require their own completed plugin backup")
+    elif bootstrap and "initdb" not in bootstrap:
+        raise DrillError("Only default, initdb or verified recovered-primary sources are supported")
     plugins = [p for p in spec.get("plugins", []) if p.get("name") == PLUGIN and p.get("enabled", True)]
     if len(plugins) != 1:
         raise DrillError("Source needs one enabled Barman Cloud plugin")
@@ -262,10 +277,10 @@ def build_manifest(source: dict[str, Any], config: Config, *, name: str, backup:
     recovery: dict[str, Any] = {"source": "backup-source"}
     if backup:
         recovery["recoveryTarget"] = {"backupID": backup["status"]["backupId"]}
-    initdb = bootstrap.get("initdb") or {}
+    application = recovered or bootstrap.get("initdb") or {}
     for key in ("database", "owner", "secret"):
-        if key in initdb:
-            recovery[key] = copy.deepcopy(initdb[key])
+        if key in application:
+            recovery[key] = copy.deepcopy(application[key])
     if config.target_time:
         recovery.setdefault("recoveryTarget", {})["targetTime"] = config.target_time
     external = {"name": "backup-source", "plugin": {"name": PLUGIN, "enabled": True, "parameters": {"barmanObjectName": config.recovery_object_store or object_name, "serverName": params.get("serverName") or config.cluster}}}
@@ -348,6 +363,22 @@ def prepare(client: Kubectl, config: Config, name: str | None = None) -> dict[st
     object_name = source_plugins[0].get("parameters", {}).get("barmanObjectName") if len(source_plugins) == 1 else None
     backup, age = choose_backup(client.list_backups(config.namespace), config, object_name)
     manifest = build_manifest(source, config, name=name or config.drill_cluster_name or new_name(config.cluster), backup=backup)
+    if source.get("spec", {}).get("bootstrap", {}).get("recovery"):
+        status = source.get("status", {})
+        primary = status.get("currentPrimary")
+        source_uid = source.get("metadata", {}).get("uid")
+        if not primary or not source_uid or status.get("readyInstances", 0) < 1:
+            raise DrillError("Recovered source needs a ready primary before a drill")
+        pod = client.get("pods", primary, config.namespace)
+        metadata = pod.get("metadata", {})
+        if metadata.get("labels", {}).get("cnpg.io/cluster") != config.cluster or not any(
+            owner.get("uid") == source_uid and owner.get("kind") == "Cluster"
+            and owner.get("apiVersion") == "postgresql.cnpg.io/v1"
+            for owner in metadata.get("ownerReferences", [])
+        ):
+            raise DrillError("Recovered source primary Pod ownership could not be verified")
+        if client.exec_query(primary, config.namespace, "SELECT pg_is_in_recovery()") != "f":
+            raise DrillError("Recovered source PostgreSQL must be a primary, not in recovery")
     manifest["metadata"]["annotations"]["cnpg-drill.dev/backup-age-seconds"] = str(age)
     if not object_name:
         raise DrillError("Source needs one enabled Barman Cloud plugin")
