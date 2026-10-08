@@ -8,14 +8,21 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   publish:
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/chart-v')
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a # v4
       - name: Check chart version matches tag
         if: github.event_name == 'push'
         run: |
@@ -30,4 +37,33 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
       - name: Publish OCI chart
-        run: helm push dist/cnpg-drill-*.tgz "oci://ghcr.io/${{ github.repository_owner }}/charts"
+        id: chart
+        env:
+          CHART_REPOSITORY: ghcr.io/${{ github.repository_owner }}/charts/cnpg-drill
+        run: |
+          set -euo pipefail
+          helm push dist/cnpg-drill-*.tgz "oci://${CHART_REPOSITORY%/cnpg-drill}" 2>&1 | tee chart-push.log
+          digest=$(sed -n 's/^Digest: //p' chart-push.log)
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Attest chart OCI manifest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/charts/cnpg-drill
+          subject-digest: ${{ steps.chart.outputs.digest }}
+          push-to-registry: true
+          create-storage-record: false
+      - name: Attest chart archive
+        id: archive
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: dist/cnpg-drill-*.tgz
+          create-storage-record: false
+      - name: Preserve chart archive and attestation bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: helm-chart-with-provenance
+          path: |
+            dist/cnpg-drill-*.tgz
+            ${{ steps.archive.outputs.bundle-path }}
+          if-no-files-found: error

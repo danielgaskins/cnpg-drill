@@ -10,3 +10,11 @@
 {{- if and .Values.alerts.enabled (le (int .Values.alerts.maxSecondsSinceSuccess) 0) }}
 {{- fail "alerts.maxSecondsSinceSuccess must be positive" }}
 {{- end }}
+
+{{- $drill := include "cnpg-drill.clusterName" . }}
+{{- if or (gt (len $drill) 61) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $drill)) (eq $drill .Values.cluster) }}
+{{- fail "drillClusterName must be a DNS label of at most 61 characters, different from the source" }}
+{{- end }}
+{{- if and .Values.rbac.sourcePrimaryPodName (or (gt (len .Values.rbac.sourcePrimaryPodName) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" .Values.rbac.sourcePrimaryPodName))) }}
+{{- fail "rbac.sourcePrimaryPodName must be a Pod DNS label of at most 63 characters" }}
+{{- end }}

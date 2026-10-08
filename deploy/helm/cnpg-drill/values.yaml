@@ -1,6 +1,13 @@
 cluster: ""
 recoveryObjectStore: ""
+# Empty selects <release>-cnpg-drill-restore, shortened to fit the first Pod name.
 drillClusterName: ""
+rbac:
+  # Required only for a source originally restored from an external source.
+  # Preflight runs a read-only recovery-state query in this named source Pod.
+  sourcePrimaryPodName: ""
+  # Opt in to namespace-wide Pod log access for recovery failure diagnostics.
+  recoveryLogs: false
 recoveryServiceAccountAnnotations: {}
 schedule: "0 3 * * 0"
 suspended: true

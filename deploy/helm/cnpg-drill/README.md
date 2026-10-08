@@ -31,7 +31,7 @@ ObjectStores. The default image is pinned to a published digest.
 
 ```bash
 helm install recovery-check oci://ghcr.io/danielgaskins/charts/cnpg-drill \
-  --version 0.1.7 --namespace production --values drill-values.yaml
+  --version 0.1.8 --namespace production --values drill-values.yaml
 kubectl -n production create job recovery-check-manual \
   --from=cronjob/recovery-check-cnpg-drill
 kubectl -n production wait --for=condition=complete job/recovery-check-manual --timeout=35m
@@ -49,6 +49,9 @@ accepts a connection; replace it before scheduling recurring drills.
 | --- | --- | --- |
 | `cluster` | required | Source CloudNativePG Cluster name. |
 | `recoveryObjectStore` | empty | Separately credentialed read-only ObjectStore; empty uses the source store. |
+| `drillClusterName` | derived from release | Fixed disposable Cluster name; at most 61 characters and different from the source. |
+| `rbac.sourcePrimaryPodName` | empty | Explicit source Pod permission for recovered-primary preflight. |
+| `rbac.recoveryLogs` | `false` | Grant namespace-wide Pod log access for failure diagnostics. |
 | `checks` | `SELECT 1` | Read-only SQL assertions. |
 | `schedule` | `0 3 * * 0` | Cron expression, used only after unsuspending. |
 | `suspended` | `true` | Prevents an unreviewed scheduled restore. |
@@ -101,8 +104,39 @@ The chart forwards `drillClusterName` and
 See the [recovery policy guide](../../../docs/FIRST-RUN.md#recovery-policies-and-extension-images)
 for ownership checks, read-only identity setup, extension images and test limits.
 
-The namespace-scoped Role allows listing and watching Clusters so kubectl can
-wait for deletion during cleanup. It does not grant access to other namespaces.
+### Permissions in chart 0.1.8
+
+The chart sets a fixed disposable Cluster name, normally `<release>-cnpg-drill-restore`.
+It does not use the source's incident restore name. Confirm the chosen name is
+reserved for drills and unused before the first run. Concurrent manual runs fail
+preflight if that Cluster already exists; retained failures also block later runs.
+
+The Role grants:
+
+- `get` on the named source and drill Clusters.
+- `delete`, `list`, and `watch` on the drill Cluster only. kubectl's deletion wait
+  includes a name field selector.
+- `get` and `pods/exec` on the expected single-instance restore Pod, `<drill-name>-1`.
+- Namespace-wide Cluster creation, Backup listing, ObjectStore metadata reads,
+  Pod listing, and PVC listing.
+
+The Role does not grant source deletion or source SQL exec by default. It does
+not grant Pod log access unless `rbac.recoveryLogs: true`; without that option,
+recovery timeouts have a generic failure reason. The drill Job's own report logs
+remain available to an operator who has normal log-reading permissions.
+
+Kubernetes RBAC cannot restrict top-level creation by name or constrain a new
+Cluster's spec. A compromised drill image could still create a Cluster using
+other namespace-local Secret references through the CNPG operator. These narrower
+permissions are not isolation from production data. Use admission restrictions
+or a separately designed recovery namespace when your trust policy requires it;
+this chart currently restores in the source namespace. Review the pinned image
+and its provenance before granting access.
+
+The restore uses one instance. If CNPG replaces its first instance with another
+Pod name, the Role denies exec and the drill fails; it does not widen permissions.
+See [Kubernetes RBAC restrictions](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#referring-to-resources)
+and the [release verification guide](../../../docs/VERIFY-RELEASE.md).
 
 ## Recovered primary sources
 
@@ -110,5 +144,11 @@ Chart 0.1.7 uses CLI v0.1.5, which supports a primary originally restored from a
 external source once it has its own completed Barman plugin backup. Preflight
 checks the source Pod ownership and confirms PostgreSQL has left recovery in a
 read-only transaction. The drill reads the current writer archive and the new
-backup; it does not reuse the old bootstrap recovery target. The existing Role
-permits this source Pod lookup and read-only exec check.
+backup; it does not reuse the old bootstrap recovery target.
+
+With chart 0.1.8, inspect `status.currentPrimary` and set
+`rbac.sourcePrimaryPodName` to that exact Pod name before running against a
+recovered source. This deliberately grants exec permission on that source Pod;
+a read-only SQL transaction is application behavior, not an RBAC restriction.
+If the primary changes, preflight fails until an operator reviews and updates
+the allowed name. Ordinary initdb sources need no source exec permission.
