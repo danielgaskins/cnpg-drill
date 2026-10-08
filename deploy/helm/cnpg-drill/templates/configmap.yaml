@@ -11,9 +11,7 @@ data:
     {{- if .Values.recoveryObjectStore -}}
     {{- $_ := set $config "recoveryObjectStore" .Values.recoveryObjectStore -}}
     {{- end -}}
-    {{- if .Values.drillClusterName -}}
-    {{- $_ := set $config "drillClusterName" .Values.drillClusterName -}}
-    {{- end -}}
+    {{- $_ := set $config "drillClusterName" (include "cnpg-drill.clusterName" .) -}}
     {{- if .Values.recoveryServiceAccountAnnotations -}}
     {{- $_ := set $config "recoveryServiceAccountAnnotations" .Values.recoveryServiceAccountAnnotations -}}
     {{- end -}}

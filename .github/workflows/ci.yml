@@ -28,5 +28,9 @@ jobs:
         run: helm lint deploy/helm/cnpg-drill --set cluster=example --set image.repository=example/cnpg-drill
       - name: Render chart
         run: helm template test deploy/helm/cnpg-drill --namespace production --set cluster=example --set image.repository=example/cnpg-drill
+      - name: Check chart permissions
+        run: |
+          python -m pip install PyYAML==6.0.3
+          python scripts/check_chart_rbac.py
       - name: Package chart
         run: helm package deploy/helm/cnpg-drill --destination dist
