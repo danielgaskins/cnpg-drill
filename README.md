@@ -10,7 +10,7 @@ The core is free and works without an account or external service. It does not m
 
 The [v0.1.5 release](https://github.com/danielgaskins/cnpg-drill/releases/tag/v0.1.5) adds backup checks for recovered primary Clusters after they complete their own plugin backup. Preflight verifies source Pod ownership and confirms PostgreSQL has left recovery. The release includes the MIT-licensed kubectl plugin archive and checksum. The [default Krew index submission](https://github.com/kubernetes-sigs/krew-index/pull/6373) packages v0.1.2 and remains under review. The [custom Krew index listing](https://github.com/ishantanu/awesome-kubectl-plugins/pull/44) and [kubetools listing](https://github.com/collabnix/kubetools/pull/431) have merged.
 
-The [Helm chart is listed on Artifact Hub](https://artifacthub.io/packages/helm/cnpg-drill/cnpg-drill) as a Verified Publisher package. Chart version `0.1.7` uses the v0.1.5 application image and includes the publisher's [website](https://danielgaskins.com/).
+The [Helm chart is listed on Artifact Hub](https://artifacthub.io/packages/helm/cnpg-drill/cnpg-drill) as a Verified Publisher package. Chart version `0.1.8` uses the v0.1.5 application image and includes the publisher's [website](https://danielgaskins.com/).
 
 The Python CLI is also [published on PyPI](https://pypi.org/project/cnpg-drill/). Its wheel and source distribution are built from the release tag with GitHub trusted publishing.
 
@@ -71,8 +71,10 @@ The example image build pins kubectl 1.36.4, suitable for Kubernetes 1.35–1.37
 
 ```bash
 helm install cnpg-drill oci://ghcr.io/danielgaskins/charts/cnpg-drill \
-  --version 0.1.7 -n production -f drill-values.yaml
+  --version 0.1.8 -n production -f drill-values.yaml
 ```
+
+Verify the image and chart with the [release verification guide](docs/VERIFY-RELEASE.md). Chart 0.1.8 limits deletion and SQL exec to named resources; it still grants namespace-wide Cluster creation and does not isolate the tool from production data.
 
 See the [first-run guide](docs/FIRST-RUN.md) and [chart values](deploy/helm/cnpg-drill/README.md) for a suspended first run with a separate read-only recovery ObjectStore. The chart pins a public multi-architecture image digest. The CronJob uses `concurrencyPolicy: Forbid` and a bounded job deadline. Its logs contain the JSON result; failed runs have nonzero exit status. Optional PVC reports and Prometheus rules preserve results and flag missed or failed runs. Fleet policy remains future work.
 

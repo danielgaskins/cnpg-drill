@@ -44,11 +44,14 @@ that fails because WAL is unavailable is useful evidence of a recovery gap.
 These options require CLI v0.1.4 or chart 0.1.6 or later.
 
 Set `drillClusterName` when a network policy or cloud role requires a specific
-recovery name, such as `app-db-restore`. The name must differ from the source.
+recovery name, such as `app-db-drill`. The name must differ from the source.
 An existing Cluster at that name stops the drill before creation. Use one
 scheduler for that name. Cleanup checks a per-run ownership token and sends a
 UID precondition to Kubernetes; a competing or replacement Cluster is left
-alone and the report fails. Inspect leftovers before retrying.
+alone and the report fails. Inspect leftovers before retrying. Reserve a drill
+name separately from the Cluster name used by your incident recovery procedure.
+Chart 0.1.8 uses a fixed name derived from the Helm release when this value is
+empty; direct CLI use still generates a name for each run.
 
 For workload identity, set `recoveryServiceAccountAnnotations` explicitly on
 the recovery Cluster's ServiceAccount. Supported keys are
@@ -62,7 +65,7 @@ verify IAM privileges. Local testing does not establish AWS or Azure access.
 
 ```json
 {
-  "drillClusterName": "app-db-restore",
+  "drillClusterName": "app-db-drill",
   "recoveryObjectStore": "app-db-recovery-readonly",
   "recoveryServiceAccountAnnotations": {
     "eks.amazonaws.com/role-arn": "arn:aws:iam::123456789012:role/postgres-recovery-readonly"
@@ -92,6 +95,13 @@ the source has its own completed plugin backup in its current writer archive.
 Both `plan` and `run` verify the ready primary Pod's Cluster ownership and run
 `pg_is_in_recovery()` in a read-only transaction against that source Pod.
 The result must be false before the tool creates a drill Cluster.
+
+With chart 0.1.8, set `rbac.sourcePrimaryPodName` to the source
+`status.currentPrimary` after checking its ownership. The chart permits exec on
+that exact Pod for this query. If the source primary changes, review and update
+the allowed name. This grants Pod exec access; the read-only transaction does
+not constrain what a compromised image could execute. See the
+[chart permission limits](../deploy/helm/cnpg-drill/README.md#permissions-in-chart-018).
 
 The drill selects the source's new backup and current writer server name.
 It preserves the application database, owner and Secret reference from the
