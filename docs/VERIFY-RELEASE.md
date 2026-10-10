@@ -54,7 +54,11 @@ gh attestation verify "oci://ghcr.io/danielgaskins/charts/cnpg-drill@${CNPG_CHAR
   --source-digest "$CNPG_CHART_SOURCE" --deny-self-hosted-runners
 helm pull "oci://ghcr.io/danielgaskins/charts/cnpg-drill@${CNPG_CHART_DIGEST}" \
   --destination "$CNPG_ARTIFACT_DIR"
-gh attestation verify "$CNPG_ARTIFACT_DIR"/cnpg-drill-*.tgz \
+shopt -s nullglob
+archives=("$CNPG_ARTIFACT_DIR"/cnpg-drill*.tgz)
+[[ ${#archives[@]} -eq 1 ]]
+CNPG_CHART_ARCHIVE=${archives[0]}
+gh attestation verify "$CNPG_CHART_ARCHIVE" \
   --repo danielgaskins/cnpg-drill \
   --signer-workflow danielgaskins/cnpg-drill/.github/workflows/chart.yml \
   --source-digest "$CNPG_CHART_SOURCE" --deny-self-hosted-runners
@@ -62,7 +66,7 @@ gh attestation verify "oci://ghcr.io/danielgaskins/cnpg-drill@${CNPG_IMAGE_DIGES
   --repo danielgaskins/cnpg-drill \
   --signer-workflow danielgaskins/cnpg-drill/.github/workflows/container.yml \
   --source-digest "$CNPG_IMAGE_SOURCE" --deny-self-hosted-runners
-helm show values "$CNPG_ARTIFACT_DIR"/cnpg-drill-*.tgz
+helm show values "$CNPG_CHART_ARCHIVE"
 ```
 
 Confirm the chart's `image.digest` equals the image digest you verified and its
